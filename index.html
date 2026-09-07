@@ -298,10 +298,10 @@ const LEVELS = [
 ];
 
 const SETTINGS = [
-  {preview:3000, vision:3, flashes:2},
-  {preview:2600, vision:2, flashes:2},
-  {preview:2300, vision:2, flashes:2},
-  {preview:2000, vision:2, flashes:1},
+    {preview:3000, vision:1, flashes:2},
+  {preview:2600, vision:1, flashes:2},
+  {preview:2300, vision:1, flashes:2},
+  {preview:2000, vision:1, flashes:1},
   {preview:1600, vision:1, flashes:1}
 ];
 
@@ -360,10 +360,15 @@ function wall(r,c){return !inside(r,c) || grid[r][c]==="#"}
 function key(r,c){return r+","+c}
 
 function reveal(r,c,radius){
+  explored.clear();
+
   for(let rr=r-radius;rr<=r+radius;rr++){
     for(let cc=c-radius;cc<=c+radius;cc++){
       if(!inside(rr,cc)) continue;
-      if(Math.abs(rr-r)+Math.abs(cc-c)<=radius) explored.add(key(rr,cc));
+
+      if(Math.abs(rr-r)+Math.abs(cc-c)<=radius){
+        explored.add(key(rr,cc));
+      }
     }
   }
 }
@@ -459,18 +464,25 @@ function finish(){
 
 function flash(){
   if(!running || preview || complete || flashes<=0) return;
-  flashes--; updateStats();
+
+  flashes--;
+  updateStats();
+
   const token=++previewToken;
-  preview=true;
+
+  // Temporarily reveal a small area around the player
+  reveal(player.r, player.c, 2);
+
   messageEl.textContent="⚡ FLASH — memorize it!";
   render();
 
   setTimeout(()=>{
     if(token!==previewToken || complete) return;
-    preview=false;
+
+    reveal(player.r, player.c, 1);
     messageEl.textContent="Back into the dark…";
     render();
-  },1800);
+  },1500);
 }
 
 function restart(){loadLevel()}
