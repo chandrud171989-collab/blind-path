@@ -255,54 +255,98 @@ button:active{transform:scale(.94)}
 <script>
 "use strict";
 
-const LEVELS = [
-  [
-    "S..#...",
-    ".#.#.#.",
-    "....#..",
-    ".##....",
-    "...##..",
-    "......G"
-  ],
-  [
-    ["S.#....",".#...#.","...#...",".#...#.","...#...","....#.G"]
-  ][0],
-  [
-    "S...#..",
-    ".##.#..",
-    "....#..",
-    "..###..",
-    "....#..",
-    ".#....G"
-  ],
-  [
-    "S.#.....",
-    "..#..#..",
-    ".#...#..",
-    ".###....",
-    "...##...",
-    "..#....G",
-    "........",
-    "..#....."
-  ],
-  [
-    "S..#....",
-    ".#.#.##.",
-    "...#....",
-    "##...#..",
-    "....#...",
-    "..###...",
-    "...#...G",
-    "........"
-  ]
-];
+const TOTAL_LEVELS = 120;
+
+function generateMaze(level) {
+  // Difficulty increases gradually
+  const difficulty = Math.min(level, 120);
+
+  let size;
+
+  if (difficulty <= 10) {
+    size = 9;
+  } else if (difficulty <= 30) {
+    size = 11;
+  } else if (difficulty <= 60) {
+    size = 13;
+  } else if (difficulty <= 90) {
+    size = 15;
+  } else {
+    size = 17;
+  }
+
+  // Create completely closed maze
+  const maze = Array.from(
+    {length:size},
+    () => Array(size).fill("#")
+  );
+
+  // Randomized DFS maze generation
+  const stack = [[1,1]];
+  maze[1][1] = ".";
+
+  const directions = [
+    [-2,0],
+    [2,0],
+    [0,-2],
+    [0,2]
+  ];
+
+  while(stack.length){
+    const current = stack[stack.length - 1];
+    const [r,c] = current;
+
+    const possible = directions
+      .map(([dr,dc]) => [r+dr,c+dc,dr,dc])
+      .filter(([nr,nc]) =>
+        nr > 0 &&
+        nr < size-1 &&
+        nc > 0 &&
+        nc < size-1 &&
+        maze[nr][nc] === "#"
+      );
+
+    if(!possible.length){
+      stack.pop();
+      continue;
+    }
+
+    const [nr,nc,dr,dc] =
+      possible[Math.floor(Math.random()*possible.length)];
+
+    maze[r + dr/2][c + dc/2] = ".";
+    maze[nr][nc] = ".";
+
+    stack.push([nr,nc]);
+  }
+
+  // Start and goal
+  maze[1][1] = "S";
+  maze[size-2][size-2] = "G";
+
+  return maze.map(row => row.join(""));
+}
 
 const SETTINGS = [
-  {preview:3000, vision:3, flashes:3},
-  {preview:2600, vision:2, flashes:3},
-  {preview:2300, vision:2, flashes:2},
-  {preview:2000, vision:2, flashes:2},
-  {preview:1600, vision:1, flashes:2}
+  {preview:4000, vision:2, flashes:3}, // 1
+  {preview:3800, vision:2, flashes:3}, // 2
+  {preview:3600, vision:2, flashes:3}, // 3
+  {preview:3400, vision:2, flashes:3}, // 4
+  {preview:3200, vision:2, flashes:2}, // 5
+
+  {preview:3000, vision:2, flashes:2}, // 6
+  {preview:2900, vision:2, flashes:2}, // 7
+  {preview:2800, vision:2, flashes:2}, // 8
+  {preview:2700, vision:2, flashes:2}, // 9
+  {preview:2600, vision:2, flashes:2}, // 10
+
+  {preview:2500, vision:1, flashes:2}, // 11
+  {preview:2400, vision:1, flashes:2}, // 12
+  {preview:2300, vision:1, flashes:2}, // 13
+  {preview:2200, vision:1, flashes:2}, // 14
+  {preview:2100, vision:1, flashes:2}, // 15
+
+  {preview:2000, vision:1, flashes:2}  // 16+
 ];
 
 const $ = id => document.getElementById(id);
@@ -323,7 +367,7 @@ function loadLevel(){
   const cfg=SETTINGS[levelIndex] || SETTINGS[0];
 
   moves=0; flashes=cfg.flashes; preview=true; running=false; complete=false;
-  parseLevel(LEVELS[levelIndex]);
+  parseLevel(generateMaze(levelIndex + 1));
   player={...start};
   explored=new Set();
   reveal(player.r,player.c,cfg.vision);
@@ -359,14 +403,6 @@ function inside(r,c){return r>=0 && r<rows && c>=0 && c<cols}
 function wall(r,c){return !inside(r,c) || grid[r][c]==="#"}
 function key(r,c){return r+","+c}
 
-function reveal(r,c,radius){
-  for(let rr=r-radius;rr<=r+radius;rr++){
-    for(let cc=c-radius;cc<=c+radius;cc++){
-      if(!inside(rr,cc)) continue;
-      if(Math.abs(rr-r)+Math.abs(cc-c)<=radius) explored.add(key(rr,cc));
-    }
-  }
-}
 
 function render(){
   mazeEl.style.gridTemplateColumns=`repeat(${cols}, minmax(0,1fr))`;
@@ -450,27 +486,47 @@ function finish(){
     localStorage.setItem("blind_path_save",JSON.stringify(save));
   }catch(e){}
 
-  resultTitle.textContent=levelIndex===LEVELS.length-1 ? "Prototype Complete!" : "Level Complete!";
+  nextBtn.textContent =
+  levelIndex === TOTAL_LEVELS - 1
+    ? "Play Again"
+    : "Next Level";
   resultStars.textContent="★".repeat(stars)+"☆".repeat(3-stars);
   resultDetails.textContent=`${moves} moves · ${seconds.toFixed(1)} seconds · ${flashes} flashes left`;
-  nextBtn.textContent=levelIndex===LEVELS.length-1 ? "Play Again" : "Next Level";
   overlay.classList.add("show");
 }
+function reveal(r,c,radius){
+  explored.clear() 
+  for(let rr=r-radius;rr<=r+radius;rr++){
+    for(let cc=c-radius;cc<=c+radius;cc++){
+      if(!inside(rr,cc)) continue;
 
+      if(Math.abs(rr-r)+Math.abs(cc-c)<=radius){
+        explored.add(key(rr,cc));
+      }
+    }
+  }
+}
 function flash(){
   if(!running || preview || complete || flashes<=0) return;
-  flashes--; updateStats();
+
+  flashes--;
+  updateStats();
+
   const token=++previewToken;
-  preview=true;
+
+  // Temporarily reveal a small area around the player
+  reveal(player.r, player.c, 2);
+
   messageEl.textContent="⚡ FLASH — memorize it!";
   render();
 
   setTimeout(()=>{
     if(token!==previewToken || complete) return;
-    preview=false;
+
+    reveal(player.r, player.c, 1);
     messageEl.textContent="Back into the dark…";
     render();
-  },1800);
+  },1500);
 }
 
 function restart(){loadLevel()}
@@ -482,7 +538,11 @@ $("restart").addEventListener("click",restart);
 $("flash").addEventListener("click",flash);
 nextBtn.addEventListener("click",()=>{
   overlay.classList.remove("show");
-  levelIndex=(levelIndex+1)%LEVELS.length;
+if(levelIndex < TOTAL_LEVELS - 1){
+  levelIndex++;
+}else{
+  levelIndex=0;
+}
   loadLevel();
 });
 
