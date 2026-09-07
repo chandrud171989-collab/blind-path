@@ -449,6 +449,7 @@ function finish(){
   overlay.classList.add("show");
 }
 function reveal(r,c,radius){
+  explored.clear() 
   for(let rr=r-radius;rr<=r+radius;rr++){
     for(let cc=c-radius;cc<=c+radius;cc++){
       if(!inside(rr,cc)) continue;
