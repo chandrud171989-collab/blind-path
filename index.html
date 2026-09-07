@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#080b10">
+<title>Blind Path</title>
+<style>
+:root{
+  --bg:#080b10;
+  --panel:#121824;
+  --panel2:#182131;
+  --border:#2a3547;
+  --text:#f4f7fb;
+  --muted:#91a0b5;
+  --accent:#62e6c5;
+  --goal:#ffd166;
+  --wall:#39465a;
+  --floor:#151d2a;
+  --unknown:#030509;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;width:100%}
+body{
+  min-height:100vh;
+  background:radial-gradient(circle at 50% 0%,#1b2739 0%,#080b10 52%);
+  color:var(--text);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  display:flex;
+  justify-content:center;
+  align-items:flex-start;
+  padding:24px 14px 40px;
+  user-select:none;
+  -webkit-user-select:none;
+}
+.app{width:100%;max-width:560px;margin:0 auto}
+.header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:14px;
+}
+.logo{
+  font-size:25px;
+  line-height:1;
+  font-weight:900;
+  letter-spacing:2px;
+  white-space:nowrap;
+}
+.logo span{color:var(--accent)}
+.stats{display:flex;gap:6px;flex:0 0 auto}
+.stat{
+  width:68px;
+  padding:7px 5px;
+  border:1px solid var(--border);
+  border-radius:11px;
+  background:rgba(18,24,36,.94);
+  text-align:center;
+}
+.stat small{
+  display:block;
+  color:var(--muted);
+  font-size:9px;
+  letter-spacing:.8px;
+}
+.stat strong{display:block;margin-top:2px;font-size:15px}
+.card{
+  background:rgba(18,24,36,.96);
+  border:1px solid var(--border);
+  border-radius:22px;
+  padding:16px;
+  box-shadow:0 24px 70px rgba(0,0,0,.42);
+}
+.message{
+  min-height:24px;
+  margin:0 0 12px;
+  text-align:center;
+  color:var(--muted);
+  font-size:14px;
+}
+.maze{
+  width:100%;
+  aspect-ratio:1/1;
+  display:grid;
+  gap:3px;
+  padding:4px;
+  background:#020307;
+  border-radius:16px;
+  overflow:hidden;
+  touch-action:none;
+}
+.cell{
+  position:relative;
+  min-width:0;
+  min-height:0;
+  border-radius:4px;
+  background:var(--floor);
+  overflow:hidden;
+}
+.cell.wall{
+  background:linear-gradient(145deg,#435168,#303c50);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.035);
+}
+.cell.explored{
+  background:#0e1520;
+}
+.cell.explored.wall{
+  background:#202a39;
+}
+.cell.player{z-index:5}
+.cell.player::before{
+  content:"";
+  position:absolute;
+  inset:-70%;
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(98,230,197,.22) 0%,rgba(98,230,197,.07) 28%,transparent 65%);
+}
+.cell.player::after{
+  content:"";
+  position:absolute;
+  width:52%;
+  height:52%;
+  left:24%;
+  top:24%;
+  border-radius:50%;
+  background:var(--accent);
+  box-shadow:0 0 9px rgba(98,230,197,.95),0 0 24px rgba(98,230,197,.5);
+  animation:pulse 1.5s ease-in-out infinite;
+}
+@keyframes pulse{50%{transform:scale(1.1)}}
+.cell.goal::after{
+  content:"★";
+  position:absolute;
+  inset:0;
+  display:grid;
+  place-items:center;
+  color:var(--goal);
+  font-size:clamp(15px,5vw,28px);
+  text-shadow:0 0 10px rgba(255,209,102,.8);
+}
+.cell.unknown{
+  background:var(--unknown)!important;
+}
+.cell.unknown::before,.cell.unknown::after{display:none!important}
+.controls{
+  width:max-content;
+  margin:16px auto 0;
+  display:grid;
+  grid-template-columns:repeat(3,64px);
+  grid-template-rows:repeat(2,54px);
+  gap:8px;
+}
+button{
+  border:1px solid var(--border);
+  background:var(--panel2);
+  color:var(--text);
+  border-radius:14px;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+button:active{transform:scale(.94)}
+.direction{font-size:20px;font-weight:800}
+.actions{display:flex;justify-content:center;gap:8px;margin-top:12px}
+.action{min-height:44px;padding:0 17px;font-size:13px;font-weight:700}
+.action.flash{color:var(--goal)}
+.help{text-align:center;color:var(--muted);font-size:11px;margin:12px 0 0}
+.overlay{
+  position:fixed;
+  inset:0;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  background:rgba(2,4,7,.8);
+  backdrop-filter:blur(7px);
+  z-index:20;
+}
+.overlay.show{display:flex}
+.modal{
+  width:min(370px,100%);
+  padding:28px 22px;
+  border:1px solid var(--border);
+  border-radius:24px;
+  background:var(--panel);
+  text-align:center;
+  box-shadow:0 30px 90px rgba(0,0,0,.55);
+}
+.modal h2{margin:0;font-size:24px}
+.stars{margin:10px 0;color:var(--goal);font-size:38px;letter-spacing:4px}
+.details{color:var(--muted);font-size:13px;margin:0 0 18px}
+.primary{
+  width:100%;
+  min-height:48px;
+  border:0;
+  background:var(--accent);
+  color:#06110e;
+  font-size:14px;
+  font-weight:900;
+}
+@media(max-width:430px){
+  body{padding:12px 9px 28px}
+  .logo{font-size:20px}
+  .stats{gap:4px}
+  .stat{width:57px}
+  .stat small{font-size:8px}
+  .stat strong{font-size:14px}
+  .card{padding:11px;border-radius:18px}
+  .controls{grid-template-columns:repeat(3,58px);grid-template-rows:repeat(2,50px)}
+}
+</style>
+</head>
+<body>
+<main class="app">
+  <header class="header">
+    <div class="logo">BLIND <span>PATH</span></div>
+    <div class="stats">
+      <div class="stat"><small>LEVEL</small><strong id="level">1</strong></div>
+      <div class="stat"><small>MOVES</small><strong id="moves">0</strong></div>
+      <div class="stat"><small>TIME</small><strong id="time">0.0</strong></div>
+    </div>
+  </header>
+
+  <section class="card">
+    <div class="message" id="message">Memorize the maze…</div>
+    <div class="maze" id="maze"></div>
+
+    <div class="controls">
+      <div></div>
+      <button class="direction" data-dir="up">▲</button>
+      <div></div>
+      <button class="direction" data-dir="left">◀</button>
+      <button class="direction" data-dir="down">▼</button>
+      <button class="direction" data-dir="right">▶</button>
+    </div>
+
+    <div class="actions">
+      <button class="action" id="restart">↻ Restart</button>
+      <button class="action flash" id="flash">⚡ Flash <span id="flashCount">3</span></button>
+    </div>
+
+    <p class="help">Swipe on the maze or use the buttons. Remember the way out.</p>
+  </section>
+</main>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2 id="resultTitle">Level Complete!</h2>
+    <div class="stars" id="resultStars">★★★</div>
+    <p class="details" id="resultDetails"></p>
+    <button class="primary" id="next">Next Level</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+const LEVELS = [
+  [
+    "S..#...",
+    ".#.#.#.",
+    "....#..",
+    ".##....",
+    "...##..",
+    "......G"
+  ],
+  [
+    ["S.#....",".#...#.","...#...",".#...#.","...#...","....#.G"]
+  ][0],
+  [
+    "S...#..",
+    ".##.#..",
+    "....#..",
+    "..###..",
+    "....#..",
+    ".#....G"
+  ],
+  [
+    "S.#.....",
+    "..#..#..",
+    ".#...#..",
+    ".###....",
+    "...##...",
+    "..#....G",
+    "........",
+    "..#....."
+  ],
+  [
+    "S..#....",
+    ".#.#.##.",
+    "...#....",
+    "##...#..",
+    "....#...",
+    "..###...",
+    "...#...G",
+    "........"
+  ]
+];
+
+const SETTINGS = [
+  {preview:3000, vision:3, flashes:3},
+  {preview:2600, vision:2, flashes:3},
+  {preview:2300, vision:2, flashes:2},
+  {preview:2000, vision:2, flashes:2},
+  {preview:1600, vision:1, flashes:2}
+];
+
+const $ = id => document.getElementById(id);
+const mazeEl=$("maze"), messageEl=$("message"), levelEl=$("level"),
+      movesEl=$("moves"), timeEl=$("time"), flashCountEl=$("flashCount"),
+      overlay=$("overlay"), resultTitle=$("resultTitle"), resultStars=$("resultStars"),
+      resultDetails=$("resultDetails"), nextBtn=$("next");
+
+let levelIndex=0, grid=[], rows=0, cols=0;
+let start={r:0,c:0}, goal={r:0,c:0}, player={r:0,c:0};
+let explored=new Set(), moves=0, flashes=3, preview=true, running=false, complete=false;
+let startTime=0, timer=null, previewToken=0;
+
+function loadLevel(){
+  clearInterval(timer);
+  previewToken++;
+  const token=previewToken;
+  const cfg=SETTINGS[levelIndex] || SETTINGS[0];
+
+  moves=0; flashes=cfg.flashes; preview=true; running=false; complete=false;
+  parseLevel(LEVELS[levelIndex]);
+  player={...start};
+  explored=new Set();
+  reveal(player.r,player.c,cfg.vision);
+  updateStats();
+  timeEl.textContent="0.0";
+  messageEl.textContent="Memorize the maze…";
+  render();
+
+  setTimeout(()=>{
+    if(token!==previewToken || complete) return;
+    preview=false; running=true; startTime=Date.now();
+    messageEl.textContent="Find the exit. Trust your memory.";
+    timer=setInterval(updateTimer,100);
+    render();
+  },cfg.preview);
+}
+
+function parseLevel(lines){
+  rows=lines.length;
+  cols=Math.max(...lines.map(s=>s.length));
+  grid=lines.map(s=>s.padEnd(cols,"#").split(""));
+  start={r:0,c:0}; goal={r:rows-1,c:cols-1};
+
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      if(grid[r][c]==="S"){start={r,c};grid[r][c]="."}
+      if(grid[r][c]==="G"){goal={r,c};grid[r][c]="."}
+    }
+  }
+}
+
+function inside(r,c){return r>=0 && r<rows && c>=0 && c<cols}
+function wall(r,c){return !inside(r,c) || grid[r][c]==="#"}
+function key(r,c){return r+","+c}
+
+function reveal(r,c,radius){
+  for(let rr=r-radius;rr<=r+radius;rr++){
+    for(let cc=c-radius;cc<=c+radius;cc++){
+      if(!inside(rr,cc)) continue;
+      if(Math.abs(rr-r)+Math.abs(cc-c)<=radius) explored.add(key(rr,cc));
+    }
+  }
+}
+
+function render(){
+  mazeEl.style.gridTemplateColumns=`repeat(${cols}, minmax(0,1fr))`;
+  mazeEl.style.gridTemplateRows=`repeat(${rows}, minmax(0,1fr))`;
+  mazeEl.innerHTML="";
+
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      const cell=document.createElement("div");
+      cell.className="cell";
+
+      const isWall=grid[r][c]==="#";
+      const isPlayer=r===player.r && c===player.c;
+      const isGoal=r===goal.r && c===goal.c;
+
+      if(isWall) cell.classList.add("wall");
+      if(explored.has(key(r,c))) cell.classList.add("explored");
+      if(isGoal) cell.classList.add("goal");
+      if(isPlayer) cell.classList.add("player");
+
+      if(!preview && !explored.has(key(r,c))) cell.classList.add("unknown");
+
+      mazeEl.appendChild(cell);
+    }
+  }
+}
+
+function updateStats(){
+  levelEl.textContent=levelIndex+1;
+  movesEl.textContent=moves;
+  flashCountEl.textContent=flashes;
+}
+
+function updateTimer(){
+  if(!running) return;
+  timeEl.textContent=((Date.now()-startTime)/1000).toFixed(1);
+}
+
+function move(dir){
+  if(!running || preview || complete) return;
+
+  const d={
+    up:[-1,0], down:[1,0], left:[0,-1], right:[0,1]
+  }[dir];
+  if(!d) return;
+
+  const nr=player.r+d[0], nc=player.c+d[1];
+
+  if(wall(nr,nc)){
+    messageEl.textContent="Blocked! Remember the path.";
+    return;
+  }
+
+  player={r:nr,c:nc};
+  moves++;
+  reveal(player.r,player.c,(SETTINGS[levelIndex]||SETTINGS[0]).vision);
+  updateStats();
+  render();
+
+  if(player.r===goal.r && player.c===goal.c) finish();
+}
+
+function finish(){
+  complete=true; running=false; clearInterval(timer);
+  const seconds=(Date.now()-startTime)/1000;
+  const cfg=SETTINGS[levelIndex]||SETTINGS[0];
+  let stars=1;
+  if(moves <= 15 + levelIndex*4) stars++;
+  if(seconds <= 20 + levelIndex*5 && flashes===cfg.flashes) stars++;
+
+  try{
+    const save=JSON.parse(localStorage.getItem("blind_path_save")||"{}");
+    save.unlockedLevel=Math.max(save.unlockedLevel||1,levelIndex+2);
+    save.levels=save.levels||{};
+    const old=save.levels[levelIndex+1];
+    save.levels[levelIndex+1]={
+      bestMoves:old ? Math.min(old.bestMoves,moves) : moves,
+      bestTime:old ? Math.min(old.bestTime,seconds) : seconds,
+      stars:old ? Math.max(old.stars,stars) : stars
+    };
+    localStorage.setItem("blind_path_save",JSON.stringify(save));
+  }catch(e){}
+
+  resultTitle.textContent=levelIndex===LEVELS.length-1 ? "Prototype Complete!" : "Level Complete!";
+  resultStars.textContent="★".repeat(stars)+"☆".repeat(3-stars);
+  resultDetails.textContent=`${moves} moves · ${seconds.toFixed(1)} seconds · ${flashes} flashes left`;
+  nextBtn.textContent=levelIndex===LEVELS.length-1 ? "Play Again" : "Next Level";
+  overlay.classList.add("show");
+}
+
+function flash(){
+  if(!running || preview || complete || flashes<=0) return;
+  flashes--; updateStats();
+  const token=++previewToken;
+  preview=true;
+  messageEl.textContent="⚡ FLASH — memorize it!";
+  render();
+
+  setTimeout(()=>{
+    if(token!==previewToken || complete) return;
+    preview=false;
+    messageEl.textContent="Back into the dark…";
+    render();
+  },1800);
+}
+
+function restart(){loadLevel()}
+
+document.querySelectorAll("[data-dir]").forEach(btn=>{
+  btn.addEventListener("click",()=>move(btn.dataset.dir));
+});
+$("restart").addEventListener("click",restart);
+$("flash").addEventListener("click",flash);
+nextBtn.addEventListener("click",()=>{
+  overlay.classList.remove("show");
+  levelIndex=(levelIndex+1)%LEVELS.length;
+  loadLevel();
+});
+
+let sx=0,sy=0;
+mazeEl.addEventListener("touchstart",e=>{
+  const t=e.changedTouches[0]; sx=t.clientX; sy=t.clientY;
+},{passive:true});
+mazeEl.addEventListener("touchend",e=>{
+  const t=e.changedTouches[0], dx=t.clientX-sx, dy=t.clientY-sy;
+  if(Math.max(Math.abs(dx),Math.abs(dy))<25)return;
+  move(Math.abs(dx)>Math.abs(dy) ? (dx>0?"right":"left") : (dy>0?"down":"up"));
+},{passive:true});
+
+document.addEventListener("keydown",e=>{
+  const m={ArrowUp:"up",ArrowDown:"down",ArrowLeft:"left",ArrowRight:"right",w:"up",a:"left",s:"down",d:"right"};
+  if(m[e.key]){e.preventDefault();move(m[e.key]);}
+});
+
+loadLevel();
+</script>
+</body>
+</html>
