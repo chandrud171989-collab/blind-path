@@ -492,7 +492,6 @@ function finish(){
     : "Next Level";
   resultStars.textContent="★".repeat(stars)+"☆".repeat(3-stars);
   resultDetails.textContent=`${moves} moves · ${seconds.toFixed(1)} seconds · ${flashes} flashes left`;
-  nextBtn.textContent=levelIndex===LEVELS-1 ? "Play Again" : "Next Level";
   overlay.classList.add("show");
 }
 function reveal(r,c,radius){
