@@ -394,11 +394,10 @@ function init(){
     new THREE.Color(0x020504);
 
   scene.fog =
-    new THREE.FogExp2(
-      0x07100a,
-      0.035
-    );
-
+  new THREE.FogExp2(
+    0x07100a,
+    0.018
+  );
 
   /* -------------------------------------------------------
      CAMERA
@@ -415,16 +414,16 @@ function init(){
     );
 
   camera.position.set(
-    0,
-    22,
-    16
-  );
+  0,
+  30,
+  10
+);
 
-  camera.lookAt(
-    0,
-    0,
-    0
-  );
+camera.lookAt(
+  0,
+  0,
+  0
+);
 
 
   /* -------------------------------------------------------
@@ -468,20 +467,20 @@ function init(){
   ------------------------------------------------------- */
 
   const hemi =
-    new THREE.HemisphereLight(
-      0x78927a,
-      0x101510,
-      1.1
-    );
+  new THREE.HemisphereLight(
+    0x9ab59d,
+    0x202820,
+    1.8
+  );
 
   scene.add(hemi);
 
 
   const moon =
     new THREE.DirectionalLight(
-      0xb7c7ff,
-      1.4
-    );
+      0xc9d8ff,
+    2.2
+  );
 
   moon.position.set(
     -20,
@@ -1296,10 +1295,10 @@ function updateTopCamera(dt){
     targetX;
 
   const desiredY =
-    22;
+    30;
 
   const desiredZ =
-    targetZ + 16;
+    targetZ + 10;
 
 
   const smooth =
