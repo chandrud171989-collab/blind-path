@@ -251,21 +251,9 @@ function loop(){
 
 const three=document.createElement("script");
 three.src="https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.min.js";
-three.onload=function(){
- status.textContent="3D engine ready";
- if(started && !renderer){
-   status.textContent="Starting forest…";
-   init();
- } else if(!started){
-   status.textContent="Ready — press Enter the Forest";
- }
-};
-three.onerror=function(){
- status.textContent="Unable to load 3D engine. Check internet connection.";
-};
-document.head.appendChild(three);
 
 })();
 </script>
+<script src="js/three.min.js"></script>
 </body>
 </html>
