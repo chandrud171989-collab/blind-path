@@ -288,6 +288,9 @@ let maze = [];
 let startCell;
 let goalCell;
 let goalObject;
+let hider=null, hiderCell=null, hiderTarget=null, hiderMoveTimer=0;
+let hiderVisible=false, hiderFound=false, gameOver=false;
+const visibility=$("visibility");
 
 let seed = 734921;
 
@@ -455,6 +458,7 @@ function init(){
   buildWorld();
 
   createPlayer();
+  createHider();
 
   updateCamera(1);
 
