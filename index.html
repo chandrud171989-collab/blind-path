@@ -242,7 +242,7 @@ canvas{
   <button class="ctrl" id="down" type="button">▼</button>
 </div>
 
-<div id="hint">WASD / Arrow Keys · 🔦 Flash reveals the path for 5 seconds</div>
+<div id="hint">WASD / Arrow Keys · 🕳️ Avoid potholes · 🔦 Flash</div>
 
 <!-- Keep your local Three.js file -->
 <script src="js/three.min.js"></script>
@@ -290,6 +290,8 @@ let goalCell;
 let goalObject;
 let hider=null, hiderCell=null, hiderTarget=null, hiderMoveTimer=0;
 let hiderVisible=false, hiderFound=false, gameOver=false;
+let potholes=[];
+let hazardMessageUntil=0;
 const visibility=$("visibility");
 
 let seed = 734921;
@@ -1259,6 +1261,112 @@ function buildDecorations(){
    GOAL
 ========================================================= */
 
+
+/* =========================================================
+   POTHOLES
+========================================================= */
+
+function createPotholes(){
+
+  potholes=[];
+
+  const candidates=[];
+
+  for(let r=2;r<ROWS-2;r++){
+    for(let c=2;c<COLS-2;c++){
+      if(maze[r][c]!==0) continue;
+
+      /* Keep important starting/ending areas clear. */
+      if(Math.hypot(r-startCell.r,c-startCell.c)<5) continue;
+      if(Math.hypot(r-goalCell.r,c-goalCell.c)<5) continue;
+
+      candidates.push({r,c});
+    }
+  }
+
+  /* Spread the potholes out so they feel like hazards rather than a wall. */
+  const chosen=[];
+  while(candidates.length && chosen.length<20){
+    const i=Math.floor(rnd()*candidates.length);
+    const cell=candidates.splice(i,1)[0];
+    if(chosen.some(p=>Math.hypot(p.r-cell.r,p.c-cell.c)<4)) continue;
+    chosen.push(cell);
+  }
+
+  const rimMat=new THREE.MeshStandardMaterial({
+    color:0x2a2119,
+    roughness:1
+  });
+
+  const insideMat=new THREE.MeshStandardMaterial({
+    color:0x080706,
+    roughness:1
+  });
+
+  const wetMat=new THREE.MeshStandardMaterial({
+    color:0x151713,
+    roughness:.7,
+    metalness:.05
+  });
+
+  for(const cell of chosen){
+
+    const g=new THREE.Group();
+    g.position.set(cx(cell.c),0,cz(cell.r));
+
+    const radius=.43+rnd()*.16;
+
+    /* Raised irregular edge */
+    const rim=new THREE.Mesh(
+      new THREE.TorusGeometry(radius,.09,8,14),
+      rimMat
+    );
+    rim.rotation.x=-Math.PI/2;
+    rim.scale.set(1.15,.82,1);
+    rim.position.y=.055;
+    rim.castShadow=true;
+    rim.receiveShadow=true;
+    g.add(rim);
+
+    /* Dark depression */
+    const hole=new THREE.Mesh(
+      new THREE.CylinderGeometry(radius*.82,radius*.68,.10,14),
+      insideMat
+    );
+    hole.position.y=.01;
+    hole.scale.y=.55;
+    hole.receiveShadow=true;
+    g.add(hole);
+
+    /* A little uneven soil around it */
+    const soil=new THREE.Mesh(
+      new THREE.CircleGeometry(radius+.18,12),
+      wetMat
+    );
+    soil.rotation.x=-Math.PI/2;
+    soil.position.y=.045;
+    soil.scale.set(1.15,.82,1);
+    soil.rotation.z=rnd()*Math.PI;
+    soil.receiveShadow=true;
+    g.add(soil);
+
+    scene.add(g);
+    potholes.push({
+      x:cx(cell.c),
+      z:cz(cell.r),
+      radius:radius*.72,
+      object:g
+    });
+  }
+}
+
+function getPotholeAt(x,z){
+  for(const p of potholes){
+    if(Math.hypot(x-p.x,z-p.z)<p.radius) return p;
+  }
+  return null;
+}
+
 function createGoal(){
 
   goalObject =
@@ -1352,6 +1460,8 @@ function buildWorld(){
   buildForestWalls();
 
   buildDecorations();
+
+  createPotholes();
 
   createGoal();
 
@@ -1618,21 +1728,26 @@ function updateHider(dt){
   if(!hiderTarget) return;
   const dx=hiderTarget.x-hider.position.x,dz=hiderTarget.z-hider.position.z,d=Math.hypot(dx,dz);
   if(d<.08){hider.position.x=hiderTarget.x;hider.position.z=hiderTarget.z;chooseHiderMove();return;}
-  const speed=2.35; hider.position.x+=dx/d*speed*dt; hider.position.z+=dz/d*speed*dt;
+  const hiderOnPothole=getPotholeAt(hider.position.x,hider.position.z);
+  const speed=hiderOnPothole?1.2:2.35;
+  hider.position.x+=dx/d*speed*dt; hider.position.z+=dz/d*speed*dt;
   const target=Math.atan2(dx,dz); let diff=target-hider.rotation.y; while(diff>Math.PI)diff-=Math.PI*2; while(diff<-Math.PI)diff+=Math.PI*2; hider.rotation.y+=diff*Math.min(1,dt*8);
 }
 
 function updateHiderVisibility(){
   if(!player||!hider||hiderFound) return;
+  if(performance.now()<hazardMessageUntil){
+    status.textContent="🕳️ Pothole! Move around it";
+  }
   const d=Math.hypot(hider.position.x-player.position.x,hider.position.z-player.position.z);
   hiderVisible=clearLineOfSight(player.position.x,player.position.z,hider.position.x,hider.position.z);
   hider.visible=hiderVisible;
   if(hiderVisible){
     distanceEl.textContent='Opponent: '+Math.max(1,Math.round(d/2))+' m';
     visibility.textContent='👁️ VISIBLE'; visibility.style.color='#f4d66d';
-    status.textContent=d<5?'⚠️ Opponent nearby!':'You have a clear view — find them!';
+    if(performance.now()>=hazardMessageUntil) status.textContent=d<5?'⚠️ Opponent nearby!':'You have a clear view — find them!';
     if(d<2){hiderFound=true;gameOver=true;hider.visible=true;status.textContent='🎯 Opponent found!';visibility.textContent='FOUND';}
-  }else{distanceEl.textContent='Opponent: ?';visibility.textContent='Hidden';visibility.style.color='#b9c8bc';status.textContent='Find the opponent';}
+  }else{distanceEl.textContent='Opponent: ?';visibility.textContent='Hidden';visibility.style.color='#b9c8bc';if(performance.now()>=hazardMessageUntil) status.textContent='Find the opponent';}
 }
 
 function openCell(x,z){
@@ -1719,8 +1834,12 @@ function updatePlayer(dt){
   z /= length;
 
 
-  const speed = 4.5;
+  const onPothole=getPotholeAt(player.position.x,player.position.z);
+  const speed=onPothole ? 1.65 : 4.5;
 
+  if(onPothole){
+    hazardMessageUntil=performance.now()+700;
+  }
 
   const nx =
     player.position.x +
