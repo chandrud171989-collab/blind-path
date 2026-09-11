@@ -1,810 +1,304 @@
 <!doctype html>
-<html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#070b09"><title>Blind Path — Hide & Seek</title>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Blind Path — Hide & Seek</title>
 <style>
-:root{--bg:#070b09;--panel:#101813;--panel2:#18231c;--border:#2b3a30;--text:#eef5ef;--muted:#9baa9f;--p1:#35d4b0;--p2:#ef6174}
-*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#050806;color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
-body{display:flex;justify-content:center;padding:14px 10px 28px}.app{width:100%;max-width:760px}
-.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.logo{font-size:24px;font-weight:950;letter-spacing:2px}.logo span{color:var(--p1)}
-.round{text-align:right;font-size:11px;color:var(--muted)}.round strong{color:var(--text);font-size:14px}
-.card{background:#0d130f;border:1px solid var(--border);border-radius:22px;padding:12px;box-shadow:0 24px 70px #0008}
-.status{display:flex;justify-content:space-between;align-items:center;padding:3px 4px 10px}.msg{font-size:13px;color:var(--muted)}
-.scores{display:flex;gap:7px}.score{padding:6px 9px;border-radius:10px;background:var(--panel2);border:1px solid var(--border);font-size:12px;font-weight:800}.p1{color:var(--p1)}.p2{color:var(--p2)}
-.stage{position:relative;width:100%;aspect-ratio:1;border-radius:18px;overflow:hidden;background:#0b120d}canvas{width:100%;height:100%;display:block;touch-action:none}
-.hud{position:absolute;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;pointer-events:none}.badge{padding:7px 10px;border:1px solid #fff2;border-radius:11px;background:#040705b0;font-size:11px;color:#dce7df}
-.controls{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:11px}.controlBox{border:1px solid var(--border);border-radius:16px;background:#0d1510;padding:9px}.controlTitle{font-size:11px;font-weight:900;letter-spacing:.8px;margin-bottom:7px}
-.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-width:190px;margin:auto}button{border:1px solid #304036;background:#19251e;color:#eef5ef;border-radius:11px;min-height:42px;font-weight:800;cursor:pointer;-webkit-tap-highlight-color:transparent}button:active{transform:scale(.94)}.blank{visibility:hidden}
-.pad button{font-size:17px}.flash{width:100%;margin-top:7px;min-height:38px}.help{text-align:center;color:var(--muted);font-size:11px;margin:11px 2px 1px;line-height:1.5}
-.overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:18px;background:#020503d1;backdrop-filter:blur(8px);z-index:20}.overlay.show{display:flex}.modal{width:min(390px,100%);padding:26px 21px;border:1px solid var(--border);border-radius:22px;background:#111a14;text-align:center;box-shadow:0 30px 90px #0009}.modal h2{margin:0;font-size:25px}.stars{margin:8px 0 4px;color:#ffd166;font-size:31px}.details{color:var(--muted);font-size:13px;margin:0 0 17px;line-height:1.55}.primary{width:100%;min-height:48px;border:0;background:var(--p1);color:#06120d;font-size:14px;font-weight:950}
-@media(max-width:560px){body{padding:8px 6px 22px}.logo{font-size:20px}.card{padding:8px;border-radius:18px}.controls{gap:7px}.controlBox{padding:7px}.controlTitle{font-size:10px}.pad button{min-height:38px}}
-
-.lobby{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:18px;background:#050806;z-index:50}
-.lobbyCard{width:min(430px,100%);background:#0d130f;border:1px solid var(--border);border-radius:24px;padding:24px;box-shadow:0 30px 90px #0009;text-align:center}
-.lobbyTitle{font-size:30px;font-weight:950;letter-spacing:2px;margin-bottom:4px}.lobbyTitle span{color:var(--p1)}
-.lobbySub{color:var(--muted);font-size:13px;margin:0 0 22px}
-.lobbyActions{display:grid;gap:10px}
-.lobbyBtn{width:100%;min-height:50px;font-size:14px;font-weight:900}
-.lobbyBtn.primary{background:var(--p1);color:#06120d;border:0}
-.lobbyBtn.secondary{background:#19251e}
-.joinBox{display:none;margin-top:14px}
-.joinBox.show{display:block}
-.codeInput{width:100%;height:54px;border-radius:13px;border:1px solid #304036;background:#08100b;color:#eef5ef;text-align:center;font-size:24px;font-weight:950;letter-spacing:6px;text-transform:uppercase;outline:none}
-.codeInput:focus{border-color:var(--p1)}
-.lobbyStatus{min-height:20px;color:var(--muted);font-size:12px;margin-top:13px;line-height:1.5}
-.roomCode{font-size:38px;font-weight:950;letter-spacing:8px;color:var(--p1);margin:8px 0 4px}
-.roleBadge{display:inline-block;padding:6px 10px;border-radius:10px;background:#18251d;border:1px solid var(--border);font-size:11px;font-weight:900;margin-bottom:10px}
-.playerList{display:grid;gap:7px;margin:16px 0;text-align:left}
-.playerState{padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#101813;font-size:12px;font-weight:800}
-.playerState.connected{border-color:#286a5c}
+*{box-sizing:border-box}
+body{margin:0;background:#0b100b;color:#eef5e8;font-family:Arial,sans-serif;min-height:100vh}
 .hidden{display:none!important}
-</style></head><body>
-<div class="lobby" id="lobby">
-  <div class="lobbyCard">
-    <div class="lobbyTitle">BLIND <span>PATH</span></div>
-    <p class="lobbySub">HIDE &amp; SEEK · TWO-DEVICE MULTIPLAYER</p>
+.app{max-width:760px;margin:auto;padding:18px 14px 30px}
+h1{text-align:center;margin:4px 0 4px;font-size:28px}
+.sub{text-align:center;color:#9baa94;margin:0 0 18px}
+.card{background:#151d15;border:1px solid #2d3a2b;border-radius:18px;padding:18px;margin:12px 0}
+button{border:0;border-radius:13px;padding:13px 16px;background:#3b7d4a;color:white;font-weight:800;font-size:15px;cursor:pointer}
+button:active{transform:scale(.98)}
+button.secondary{background:#293329}
+button.orange{background:#a85d28}
+input{width:100%;padding:13px;border-radius:12px;border:1px solid #40503c;background:#0d140d;color:#fff;font-size:18px;text-align:center;letter-spacing:4px}
+.actions{display:grid;gap:10px}
+.row{display:flex;gap:10px;align-items:center}
+.row>*{flex:1}
+.status{text-align:center;min-height:24px;color:#b8d8b3;margin:10px 0;font-weight:700}
+.room{font-size:30px;letter-spacing:6px;text-align:center;font-weight:900;margin:8px}
+.states{display:flex;gap:8px}
+.state{flex:1;text-align:center;background:#0d140d;border-radius:12px;padding:10px;font-size:13px}
+.hud{display:flex;justify-content:space-between;align-items:center;margin:8px 0 10px}
+.score{font-size:18px;font-weight:900}
+canvas{display:block;width:100%;max-width:620px;height:auto;margin:auto;border-radius:14px;border:1px solid #354331;background:#10170f;image-rendering:auto}
+.controls{margin-top:12px;text-align:center}
+.dpad{width:190px;margin:10px auto;display:grid;grid-template-columns:repeat(3,56px);grid-template-rows:repeat(3,50px);gap:5px;justify-content:center}
+.dpad button{padding:0;font-size:20px}
+.flash{width:190px;background:#92762a}
+.small{font-size:12px;color:#95a58f;text-align:center}
+#message{min-height:22px;text-align:center;font-weight:800;color:#d4e8cd}
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>🌲 Blind Path</h1>
+  <p class="sub">Hide & Seek in the dark</p>
 
-    <div id="homeActions" class="lobbyActions">
-      <button class="lobbyBtn primary" id="singleBtn">Play vs Computer</button>
-      <button class="lobbyBtn secondary" id="createBtn">Create Game</button>
-      <button class="lobbyBtn secondary" id="showJoinBtn">Join Game</button>
-    </div>
-
-    <div id="joinBox" class="joinBox">
-      <input id="codeInput" class="codeInput" maxlength="6" inputmode="text" autocomplete="off" placeholder="ABC123" aria-label="Game code">
-      <div class="lobbyActions" style="margin-top:10px">
-        <button class="lobbyBtn primary" id="joinBtn">Join Game</button>
-        <button class="lobbyBtn secondary" id="backBtn">Back</button>
-      </div>
+  <section id="lobby" class="card">
+    <div id="homeActions" class="actions">
+      <button id="singleBtn" type="button">🎮 Play vs Computer</button>
+      <button id="createBtn" type="button">👥 Create Game</button>
+      <button id="showJoinBtn" type="button" class="secondary">🔗 Join Game</button>
     </div>
 
     <div id="singlePanel" class="hidden">
-      <div class="roleBadge">PLAYER 1 · VS COMPUTER</div>
-      <div style="font-size:13px;color:var(--muted);margin:10px 0 16px">You are Player 1. The computer is Player 2.</div>
-      <div class="lobbyActions">
-        <button class="lobbyBtn primary" id="singleStartBtn">Start Game</button>
-        <button class="lobbyBtn secondary" id="singleBackBtn">Back</button>
+      <h2>Play vs Computer</h2>
+      <p>The computer controls Player 2. You control Player 1.</p>
+      <div class="actions">
+        <button id="singleStartBtn" type="button">▶ Start Game</button>
+        <button id="singleBackBtn" type="button" class="secondary">← Back</button>
       </div>
     </div>
 
-    <div id="roomPanel" class="hidden">
-      <div class="roleBadge" id="roleBadge">PLAYER 1 · HOST</div>
-      <div class="roomCode" id="roomCode">------</div>
-      <div style="font-size:12px;color:var(--muted)">Share this code with Player 2</div>
-      <div class="playerList">
-        <div class="playerState connected" id="p1State">● Player 1 · Connected</div>
-        <div class="playerState" id="p2State">○ Player 2 · Waiting...</div>
+    <div id="joinBox" class="hidden">
+      <h2>Join Game</h2>
+      <input id="codeInput" maxlength="6" placeholder="GAME CODE" autocomplete="off">
+      <div class="row" style="margin-top:10px">
+        <button id="joinBtn" type="button">Join</button>
+        <button id="joinBackBtn" type="button" class="secondary">Back</button>
       </div>
-      <button class="lobbyBtn primary hidden" id="startBtn">Start Game</button>
-      <button class="lobbyBtn secondary" id="leaveBtn" style="margin-top:8px">Leave Game</button>
     </div>
 
-    <div class="lobbyStatus" id="lobbyStatus"></div>
-  </div>
+    <div id="lobbyStatus" class="status"></div>
+  </section>
+
+  <section id="gameApp" class="hidden">
+    <div class="hud">
+      <div class="score">P1: <span id="score1">0</span></div>
+      <div id="roundText">Round 1 · First to 3</div>
+      <div class="score">P2: <span id="score2">0</span></div>
+    </div>
+
+    <div class="card" id="roomPanel" style="text-align:center">
+      <div id="roleBadge">PLAYER 1</div>
+      <div class="room" id="roomCode"></div>
+      <div class="states">
+        <div class="state">P1<br><b id="p1State">—</b></div>
+        <div class="state">P2<br><b id="p2State">—</b></div>
+      </div>
+      <button id="startBtn" class="hidden" type="button" style="margin-top:12px">▶ Start Game</button>
+      <button id="leaveBtn" class="secondary" type="button" style="margin-top:10px">Leave Game</button>
+    </div>
+
+    <div id="message"></div>
+    <canvas id="game" width="300" height="300"></canvas>
+
+    <div class="controls">
+      <div id="controlTitle">PLAYER 1</div>
+      <div class="dpad">
+        <span></span><button type="button" data-d="up">▲</button><span></span>
+        <button type="button" data-d="left">◀</button><button type="button" data-d="down">▼</button><button type="button" data-d="right">▶</button>
+      </div>
+      <button id="flashBtn" class="flash" type="button">⚡ Flash (<span id="myFlash">3</span>)</button>
+      <p class="small">Keyboard: WASD / Arrow Keys · Flash: Q for P1, / for P2</p>
+    </div>
+  </section>
 </div>
 
-<main class="app" id="gameApp">
-  <header class="header"><div class="logo">BLIND <span>PATH</span></div><div class="round">HIDE &amp; SEEK<br><strong id="roundText">Round 1 · First to 3</strong></div></header>
-  <section class="card">
-    <div class="status"><div class="msg" id="message">Waiting for game…</div><div class="scores"><div class="score p1">P1 <span id="score1">0</span></div><div class="score p2">P2 <span id="score2">0</span></div></div></div>
-    <div class="stage"><canvas id="game"></canvas><div class="hud"><div class="badge" id="stateBadge">WAITING</div><div class="badge">🔦 Flash: <span id="flashHud">3</span></div></div></div>
-    <div class="controls" id="controls">
-      <div class="controlBox" id="myControls">
-        <div class="controlTitle" id="controlTitle">PLAYER</div>
-        <div class="pad">
-          <button class="blank"></button><button data-d="up">▲</button><button class="blank"></button>
-          <button data-d="left">◀</button><button data-d="down">▼</button><button data-d="right">▶</button>
-        </div>
-        <button class="flash" id="flashBtn">⚡ Flash <span id="myFlash">3</span></button>
-      </div>
-    </div>
-    <p class="help">Find the other player before they find you. The hidden grid controls movement; you only see a natural forest path.</p>
-  </section>
-</main>
-<div class="overlay" id="overlay"><div class="modal"><h2 id="resultTitle"></h2><div class="stars">★</div><p class="details" id="resultDetails"></p><button class="primary" id="nextBtn">Next Round</button></div></div>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.0"></script>
 <script>
-/* =========================================================
-   BLIND PATH — Shared Game Engine
-   Modes:
-     - single: P1 human, P2 computer
-     - multi:  P1/P2 on separate devices via Supabase Realtime
-   ========================================================= */
+const SUPABASE_URL="https://daiykupnjfbcsycimxmz.supabase.co";
+const SUPABASE_KEY="sb_publishable_DsXWL1_SIpxoC0yA2MNN1w_70D7pRQI";
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
-const SUPABASE_URL = "https://daiykupnjfbcsycimxmz.supabase.co";
-const SUPABASE_KEY = "sb_publishable_DsXWL1_SIpxoC0yA2MNN1w_70D7pRQI";
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const CFG={preview:3500,vision:2,flashVision:4,flashDuration:1300,flashes:3,aiInterval:520};
+const WIN=3, rows=15, cols=15;
+let mode=null,role=null,code="",seed=0,round=1,scores={1:0,2:0};
+let grid=[],preview=true,finished=false,channel=null,aiTimer=null;
+let players={1:{r:1,c:1,dir:"down",flashes:3,flashUntil:0},2:{r:13,c:13,dir:"up",flashes:3,flashUntil:0}};
+const DIR={up:[-1,0],down:[1,0],left:[0,-1],right:[0,1]};
+const $=id=>document.getElementById(id);
 
-const CFG = {
-  preview: 3500,
-  vision: 2,
-  flashVision: 4,
-  flashDuration: 1300,
-  flashes: 3,
-  aiInterval: 520,
-  moveInterval: 90
-};
-const WIN = 3;
-const MAX = 5;
+function status(t){$("lobbyStatus").textContent=t||"";$("message").textContent=t||""}
+function localId(){return mode==="single"?1:(role==="p1"?1:2)}
 
-let mode = null;                 // "single" | "multi"
-let role = null;                 // "p1" | "p2" in multiplayer
-let round = 1;
-let scores = {1: 0, 2: 0};
-let rows = 15, cols = 15, tile = 20;
-let grid = [];
-let seed = 0;
-let preview = true;
-let finished = false;
-let started = 0;
-let channel = null;
-let gameCode = "";
-let aiTimer = null;
-let moveLocked = false;
-let lastBroadcastMove = 0;
-
-let players = {
-  1: {r:1, c:1, dir:"down", flashes:CFG.flashes, moves:0, flashUntil:0},
-  2: {r:13, c:13, dir:"up", flashes:CFG.flashes, moves:0, flashUntil:0}
-};
-
-const $ = id => document.getElementById(id);
-const canvas = $("game");
-const ctx = canvas.getContext("2d");
-
-function setStatus(msg, cls="") {
-  const el = $("lobbyStatus");
-  if (!el) return;
-  el.textContent = msg;
-  el.className = "lobbyStatus" + (cls ? " " + cls : "");
-  const msgEl = $("message");
-  if (msgEl) msgEl.textContent = msg;
+function rng(s){
+  let x=(s>>>0)||1;
+  return ()=>{x^=x<<13;x>>>=0;x^=x>>>17;x>>>=0;x^=x<<5;x>>>=0;return(x>>>0)/4294967296}
 }
-
-function show(id, yes=true) {
-  const el = $(id);
-  if (el) el.style.display = yes ? "" : "none";
-}
-
-function randInt(n) { return Math.floor(Math.random()*n); }
-
-function makeSeed() {
-  return Math.floor(Math.random()*0x7fffffff);
-}
-
-/* Deterministic PRNG so both multiplayer devices build the same maze. */
-function rngFromSeed(s) {
-  let x = (s >>> 0) || 1;
-  return () => {
-    x ^= x << 13; x >>>= 0;
-    x ^= x >>> 17; x >>>= 0;
-    x ^= x << 5; x >>>= 0;
-    return (x >>> 0) / 4294967296;
-  };
-}
-
-function maze(seedValue) {
-  const rng = rngFromSeed(seedValue);
-  grid = Array.from({length:rows},()=>Array(cols).fill(1));
-
-  function carve(r,c) {
-    grid[r][c]=0;
+function buildMaze(s){
+  const r=rng(s);
+  grid=Array.from({length:rows},()=>Array(cols).fill(1));
+  function carve(y,x){
+    grid[y][x]=0;
     const ds=[[0,2],[0,-2],[2,0],[-2,0]];
-    for(let i=ds.length-1;i>0;i--){
-      const j=Math.floor(rng()*(i+1));
-      [ds[i],ds[j]]=[ds[j],ds[i]];
-    }
-    for(const [dr,dc] of ds){
-      const nr=r+dr,nc=c+dc;
-      if(nr>0&&nr<rows-1&&nc>0&&nc<cols-1&&grid[nr][nc]===1){
-        grid[r+dr/2][c+dc/2]=0;
-        carve(nr,nc);
+    for(let i=ds.length-1;i>0;i--){let j=Math.floor(r()*(i+1));[ds[i],ds[j]]=[ds[j],ds[i]]}
+    for(const [dy,dx] of ds){
+      const ny=y+dy,nx=x+dx;
+      if(ny>0&&ny<rows-1&&nx>0&&nx<cols-1&&grid[ny][nx]){
+        grid[y+dy/2][x+dx/2]=0;carve(ny,nx)
       }
     }
   }
-  carve(1,1);
-
-  // Keep both spawn cells reachable/open.
-  grid[1][1]=0;
-  grid[rows-2][cols-2]=0;
+  carve(1,1);grid[1][1]=0;grid[13][13]=0;
 }
-
-function resetPlayers() {
-  players = {
-    1:{r:1,c:1,dir:"down",flashes:CFG.flashes,moves:0,flashUntil:0},
-    2:{r:rows-2,c:cols-2,dir:"up",flashes:CFG.flashes,moves:0,flashUntil:0}
-  };
+function newRound(s){
+  seed=s;buildMaze(seed);
+  players={1:{r:1,c:1,dir:"down",flashes:3,flashUntil:0},2:{r:13,c:13,dir:"up",flashes:3,flashUntil:0}};
+  preview=true;finished=false;
+  setTimeout(()=>preview=false,CFG.preview);
+  draw();
 }
-
-function resetRound(newSeed) {
-  seed = newSeed ?? makeSeed();
-  maze(seed);
-  resetPlayers();
-  preview = true;
-  finished = false;
-  started = Date.now();
-  setTimeout(()=>{ preview=false; }, CFG.preview);
+function canMove(p,d){
+  const q=DIR[d],nr=p.r+q[0],nc=p.c+q[1];
+  return nr>=0&&nr<rows&&nc>=0&&nc<cols&&grid[nr][nc]===0
 }
-
-
-function el(id){ return document.getElementById(id); }
-function setGameVisible(yes){ el("gameApp").classList.toggle("hidden", !yes); }
-function setSinglePanel(yes){ el("singlePanel").classList.toggle("hidden", !yes); }
-function setRoomPanel(yes){ el("roomPanel").classList.toggle("hidden", !yes); }
-function setJoinBox(yes){ el("joinBox").classList.toggle("hidden", !yes); }
-
-function openLobby() {
-  mode = null; role = null; gameCode = "";
+function move(id,d,broadcast=true){
+  if(preview||finished)return;
+  const p=players[id];if(!canMove(p,d))return;
+  p.dir=d;p.r+=DIR[d][0];p.c+=DIR[d][1];
+  collision();
+  if(mode==="multi"&&broadcast)send("move",{id,d});
+}
+function collision(){
+  if(players[1].r===players[2].r&&players[1].c===players[2].c)win(1);
+}
+function flash(id,broadcast=true){
+  if(preview||finished)return;
+  const p=players[id];if(p.flashes<=0)return;
+  p.flashes--;p.flashUntil=Date.now()+CFG.flashDuration;
+  if(mode==="multi"&&broadcast)send("flash",{id});
+}
+function win(id){
+  if(finished)return;
+  finished=true;scores[id]++;ui();status("PLAYER "+id+" FOUND THE OPPONENT!");
+  if(mode==="multi")send("game",{type:"win",winner:id});
   stopAI();
-  if(channel){ supabase.removeChannel(channel); channel=null; }
-
-  el("lobby").classList.remove("hidden");
-  setGameVisible(false);
-  setSinglePanel(false);
-  setRoomPanel(false);
-  setJoinBox(false);
-  el("homeActions").classList.remove("hidden");
-  setStatus("");
+  if(scores[id]<WIN)setTimeout(()=>{
+    round++;const ns=Math.floor(Math.random()*0x7fffffff);
+    if(mode==="single"){newRound(ns);startAI();status("Round "+round+" — GO!")}
+    else if(role==="p1"){newRound(ns);send("lobby",{type:"restart",seed:ns,round,scores});status("Round "+round+" — GO!")}
+  },1200);
+  else setTimeout(()=>status("PLAYER "+id+" WINS THE MATCH!"),1200);
 }
+function send(event,payload){if(channel)channel.send({type:"broadcast",event,payload})}
 
-function beginSingle() {
-  mode = "single";
-  role = "p1";
-  scores={1:0,2:0};
-  round=1;
-
-  el("lobby").classList.add("hidden");
-  setGameVisible(true);
-  setSinglePanel(false);
-  setRoomPanel(false);
-
-  $("roleBadge").textContent = "PLAYER 1 · VS COMPUTER";
-  $("controlTitle").textContent = "PLAYER 1";
-  resetRound(makeSeed());
-  startAI();
-  setStatus("Find the other player before they find you.");
-  ui();
-}
-
-async function createGame() {
-  mode="multi"; role="p1";
-  scores={1:0,2:0}; round=1;
-  gameCode = Math.random().toString(36).slice(2,8).toUpperCase();
-
-  el("lobby").classList.add("hidden");
-  setGameVisible(true);
-  setRoomPanel(true);
-  setSinglePanel(false);
-  $("roleBadge").textContent="PLAYER 1 · HOST";
-  $("controlTitle").textContent="PLAYER 1";
-  $("roomCode").textContent=gameCode;
-  $("p1State").textContent="Connected";
-  $("p2State").textContent="Waiting…";
-  setStatus("Share the code with Player 2.");
-
-  await joinChannel();
-  resetRound(makeSeed());
-
-  await channel.send({
-    type:"broadcast",
-    event:"lobby",
-    payload:{type:"room_init", seed, round, scores}
+async function connect(){
+  if(channel)await sb.removeChannel(channel);
+  channel=sb.channel("blind-path:"+code,{config:{broadcast:{ack:true}}});
+  channel.on("broadcast",{event:"lobby"},({payload})=>lobbyMsg(payload));
+  channel.on("broadcast",{event:"move"},({payload})=>{
+    if(mode==="multi"&&payload.id!==localId())move(payload.id,payload.d,false)
   });
-}
-
-async function joinGame() {
-  const input = $("codeInput");
-  const code = (input.value||"").trim().toUpperCase();
-  if(code.length!==6){ setStatus("Enter the 6-character game code."); return; }
-
-  mode="multi"; role="p2";
-  gameCode=code;
-  scores={1:0,2:0}; round=1;
-
-  el("lobby").classList.add("hidden");
-  setGameVisible(true);
-  setRoomPanel(true);
-  setSinglePanel(false);
-  $("roleBadge").textContent="PLAYER 2 · JOINED";
-  $("controlTitle").textContent="PLAYER 2";
-  $("roomCode").textContent=gameCode;
-  $("p1State").textContent="Waiting…";
-  $("p2State").textContent="Connected";
-  $("startBtn").classList.add("hidden");
-  setStatus("Connecting to Player 1…");
-
-  await joinChannel();
-  setStatus("Connected. Waiting for Player 1 to start.");
-}
-
-async function joinChannel() {
-  if(channel) await supabase.removeChannel(channel);
-
-  channel = supabase.channel("blind-path:"+gameCode, {
-    config:{broadcast:{ack:true}}
+  channel.on("broadcast",{event:"flash"},({payload})=>{
+    if(mode==="multi"&&payload.id!==localId())flash(payload.id,false)
   });
-
-  channel
-    .on("broadcast",{event:"lobby"},({payload})=>handleLobby(payload))
-    .on("broadcast",{event:"move"},({payload})=>handleMove(payload))
-    .on("broadcast",{event:"flash"},({payload})=>handleFlash(payload))
-    .on("broadcast",{event:"game"},({payload})=>handleGame(payload))
-    .on("presence",{event:"sync"},()=>updatePresence())
-    .on("presence",{event:"join"},()=>updatePresence())
-    .on("presence",{event:"leave"},()=>updatePresence());
-
-  await channel.subscribe(async status=>{
-    if(status==="SUBSCRIBED"){
-      await channel.track({role, joinedAt:Date.now()});
-      updatePresence();
+  channel.on("broadcast",{event:"game"},({payload})=>{
+    if(payload.type==="win"&&mode==="multi"){
+      if(!finished){finished=true;scores[payload.winner]++;ui();status("PLAYER "+payload.winner+" FOUND THE OPPONENT!")}
     }
   });
+  channel.on("presence",{event:"sync"},presence);
+  channel.on("presence",{event:"join"},presence);
+  channel.on("presence",{event:"leave"},presence);
+  await channel.subscribe(async st=>{if(st==="SUBSCRIBED"){await channel.track({role})}});
+}
+function presence(){
+  if(!channel)return;
+  const vals=Object.values(channel.presenceState()).flat();
+  const p1=vals.some(x=>x.role==="p1"),p2=vals.some(x=>x.role==="p2");
+  $("p1State").textContent=p1?"Connected":"Waiting…";
+  $("p2State").textContent=p2?"Connected":"Waiting…";
+  if(role==="p1"&&p2){$("startBtn").classList.remove("hidden");status("Player 2 connected. Press Start Game.")}
+}
+function lobbyMsg(p){
+  if(p.type==="room_init"&&role==="p2"){seed=p.seed;scores=p.scores;round=p.round;newRound(seed);status("Connected. Waiting for Player 1 to start.")}
+  if(p.type==="start"){seed=p.seed;scores=p.scores;round=p.round;newRound(seed);status("GO!")}
+  if(p.type==="restart"){seed=p.seed;scores=p.scores;round=p.round;newRound(seed);status("Round "+round+" — GO!")}
 }
 
-function updatePresence(){
-  if(!channel) return;
-  const state=channel.presenceState();
-  const list=Object.values(state).flat();
-  const has1=list.some(x=>x.role==="p1");
-  const has2=list.some(x=>x.role==="p2");
-  if($("p1State")) $("p1State").textContent=has1?"Connected":"Waiting…";
-  if($("p2State")) $("p2State").textContent=has2?"Connected":"Waiting…";
-  if(mode==="multi" && role==="p1" && has2){
-    $("startBtn").classList.remove("hidden");
-    setStatus("Player 2 connected. Press Start Game.");
-  }
+function showLobby(){
+  mode=null;role=null;stopAI();
+  if(channel){sb.removeChannel(channel);channel=null}
+  $("lobby").classList.remove("hidden");$("gameApp").classList.add("hidden");
+  $("homeActions").classList.remove("hidden");$("singlePanel").classList.add("hidden");$("joinBox").classList.add("hidden");
+  status("");
 }
+function showGame(){ $("lobby").classList.add("hidden");$("gameApp").classList.remove("hidden") }
 
-function handleLobby(p){
-  if(p.type==="room_init"){
-    if(role==="p2"){
-      seed=p.seed;
-      round=p.round||1;
-      scores=p.scores||{1:0,2:0};
-      resetRound(seed);
-      setStatus("Player 1 is ready. Waiting for Start Game.");
-    }
-  }
-  if(p.type==="start"){
-    seed=p.seed;
-    round=p.round||1;
-    scores=p.scores||scores;
-    resetRound(seed);
-    setStatus("GO!");
-  }
-  if(p.type==="restart"){
-    seed=p.seed;
-    round=p.round;
-    scores=p.scores;
-    resetRound(seed);
-    setStatus("New round!");
-  }
-}
+$("singleBtn").onclick=()=>{$("homeActions").classList.add("hidden");$("singlePanel").classList.remove("hidden");status("Ready to play against the computer.")};
+$("singleBackBtn").onclick=showLobby;
+$("singleStartBtn").onclick=()=>{
+  mode="single";role="p1";round=1;scores={1:0,2:0};
+  showGame();$("roomPanel").classList.add("hidden");$("roleBadge").textContent="PLAYER 1 · VS COMPUTER";$("controlTitle").textContent="PLAYER 1";
+  newRound(Math.floor(Math.random()*0x7fffffff));startAI();status("Find the computer before it finds you.");ui()
+};
+$("createBtn").onclick=async()=>{
+  mode="multi";role="p1";round=1;scores={1:0,2:0};code=Math.random().toString(36).slice(2,8).toUpperCase();
+  showGame();$("roomPanel").classList.remove("hidden");$("roleBadge").textContent="PLAYER 1 · HOST";$("roomCode").textContent=code;$("startBtn").classList.add("hidden");
+  $("p1State").textContent="Connecting…";$("p2State").textContent="Waiting…";status("Creating game…");
+  newRound(Math.floor(Math.random()*0x7fffffff));await connect();send("lobby",{type:"room_init",seed,scores,round});status("Share the code with Player 2.")
+};
+$("showJoinBtn").onclick=()=>{$("homeActions").classList.add("hidden");$("joinBox").classList.remove("hidden");$("codeInput").focus();status("Enter the 6-character game code.")};
+$("joinBackBtn").onclick=showLobby;
+$("joinBtn").onclick=async()=>{
+  code=$("codeInput").value.trim().toUpperCase();
+  if(code.length!==6){status("Please enter a 6-character code.");return}
+  mode="multi";role="p2";round=1;scores={1:0,2:0};
+  showGame();$("roomPanel").classList.remove("hidden");$("roleBadge").textContent="PLAYER 2 · JOINED";$("roomCode").textContent=code;
+  $("startBtn").classList.add("hidden");$("p1State").textContent="Waiting…";$("p2State").textContent="Connecting…";status("Connecting…");
+  await connect();status("Connected. Waiting for Player 1 to start.")
+};
+$("startBtn").onclick=()=>{if(role!=="p1")return;seed=Math.floor(Math.random()*0x7fffffff);round=1;scores={1:0,2:0};newRound(seed);send("lobby",{type:"start",seed,round,scores});$("startBtn").classList.add("hidden");status("GO!")};
+$("leaveBtn").onclick=showLobby;
+$("flashBtn").onclick=()=>flash(localId());
 
-function broadcast(event,payload){
-  if(!channel) return;
-  channel.send({type:"broadcast",event,payload});
-}
+document.querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>move(localId(),b.dataset.d));
 
-function handleMove(p){
-  if(mode!=="multi" || p.id===playerId()) return;
-  const id=p.id;
-  const pl=players[id];
-  if(!pl) return;
-  if(!canMove(pl.r,pl.c,p.dir)) return;
-  pl.dir=p.dir;
-  pl.r+=DIR[p.dir][0];
-  pl.c+=DIR[p.dir][1];
-  pl.moves++;
-  checkCollision();
-}
-
-function handleFlash(p){
-  if(mode!=="multi" || p.id===playerId()) return;
-  const pl=players[p.id];
-  if(!pl || pl.flashes<=0) return;
-  pl.flashes--;
-  pl.flashUntil=Date.now()+CFG.flashDuration;
-}
-
-function handleGame(p){
-  if(p.type==="win"){
-    scores[p.winner]=(scores[p.winner]||0)+1;
-    finished=true;
-    setStatus("Player "+p.winner+" found the opponent!");
-    if(scores[p.winner]>=WIN){
-      setStatus("PLAYER "+p.winner+" WINS THE MATCH!");
-    }
-  }
-}
-
-const DIR={
-  up:[-1,0],down:[1,0],left:[0,-1],right:[0,1]
+document.onkeydown=e=>{
+  const k=e.key.toLowerCase(),m={w:"up",arrowup:"up",s:"down",arrowdown:"down",a:"left",arrowleft:"left",d:"right",arrowright:"right"};
+  if(m[k]){e.preventDefault();move(localId(),m[k])}
+  if((localId()===1&&k==="q")||(localId()===2&&k==="/")){e.preventDefault();flash(localId())}
 };
 
-function playerId(){ return mode==="single"?1:(role==="p1"?1:2); }
-
-function canMove(r,c,dir){
-  const d=DIR[dir];
-  if(!d) return false;
-  const nr=r+d[0],nc=c+d[1];
-  return nr>=0&&nr<rows&&nc>=0&&nc<cols&&grid[nr][nc]===0;
+function startAI(){stopAI();aiTimer=setInterval(aiStep,CFG.aiInterval)}
+function stopAI(){if(aiTimer){clearInterval(aiTimer);aiTimer=null}}
+function ns(r,c){
+  const a=[];for(const [d,[y,x]] of Object.entries(DIR)){const Y=r+y,X=c+x;if(Y>=0&&Y<rows&&X>=0&&X<cols&&grid[Y][X]===0)a.push({r:Y,c:X,d})}return a
 }
-
-function move(id,dir){
-  if(preview||finished||moveLocked) return;
-  const pl=players[id];
-  if(!pl||!canMove(pl.r,pl.c,dir)) return;
-
-  pl.dir=dir;
-  pl.r+=DIR[dir][0];
-  pl.c+=DIR[dir][1];
-  pl.moves++;
-
-  checkCollision();
-
-  if(mode==="multi"){
-    const now=Date.now();
-    if(now-lastBroadcastMove>=CFG.moveInterval){
-      lastBroadcastMove=now;
-      broadcast("move",{id,dir});
-    }
-  }
+function bfs(sr,sc,tr,tc){
+  const q=[[sr,sc]],seen=new Set([sr+","+sc]),prev=new Map();
+  while(q.length){const [r,c]=q.shift();if(r===tr&&c===tc){const path=[];let key=r+","+c;while(prev.has(key)){const z=prev.get(key);path.push(z.d);key=z.from}return path.reverse()}
+    for(const n of ns(r,c)){const key=n.r+","+n.c;if(!seen.has(key)){seen.add(key);prev.set(key,{from:r+","+c,d:n.d});q.push([n.r,n.c])}}
+  }return[]
 }
-
-function checkCollision(){
-  if(finished) return;
-  if(players[1].r===players[2].r && players[1].c===players[2].c){
-    win(1);
-  }
-}
-
-function win(id){
-  if(finished) return;
-  finished=true;
-  scores[id]++;
-  setStatus("PLAYER "+id+" FOUND THE OPPONENT!");
-
-  if(mode==="single"){
-    stopAI();
-  }else{
-    broadcast("game",{type:"win",winner:id});
-  }
-
-  ui();
-  setTimeout(()=>{
-    if(scores[id]>=WIN){
-      setStatus("PLAYER "+id+" WINS THE MATCH!");
-      return;
-    }
-    if(mode==="single"){
-      round++;
-      resetRound(makeSeed());
-      startAI();
-      setStatus("Round "+round+" — GO!");
-    }else if(role==="p1"){
-      round++;
-      const nextSeed=makeSeed();
-      scores={...scores};
-      broadcast("lobby",{type:"restart",seed:nextSeed,round,scores});
-      resetRound(nextSeed);
-      setStatus("Round "+round+" — GO!");
-    }
-  },1200);
-}
-
-function flash(id){
-  if(preview||finished) return;
-  const pl=players[id];
-  if(!pl || pl.flashes<=0) return;
-  pl.flashes--;
-  pl.flashUntil=Date.now()+CFG.flashDuration;
-
-  if(mode==="multi") broadcast("flash",{id});
-}
-
-function startMultiGame(){
-  if(mode!=="multi" || role!=="p1") return;
-  const state=channel?.presenceState()||{};
-  const list=Object.values(state).flat();
-  if(!list.some(x=>x.role==="p2")){
-    setStatus("Player 2 is not connected yet.");
-    return;
-  }
-  seed=makeSeed();
-  round=1;
-  scores={1:0,2:0};
-  resetRound(seed);
-  broadcast("lobby",{type:"start",seed,round,scores});
-  setStatus("GO!");
-}
-
-function endMatch(){
-  finished=true;
-  stopAI();
-  setStatus("Match finished. Choose a new game.");
-}
-
-/* ---------------- AI ---------------- */
-
-function neighbors(r,c){
-  const out=[];
-  for(const [name,[dr,dc]] of Object.entries(DIR)){
-    const nr=r+dr,nc=c+dc;
-    if(nr>=0&&nr<rows&&nc>=0&&nc<cols&&grid[nr][nc]===0)
-      out.push({r:nr,c:nc,dir:name});
-  }
-  return out;
-}
-
-function pathToTarget(sr,sc,tr,tc){
-  const q=[[sr,sc]], seen=new Set([sr+","+sc]), prev=new Map();
-  while(q.length){
-    const [r,c]=q.shift();
-    if(r===tr&&c===tc){
-      const path=[];
-      let k=r+","+c;
-      while(prev.has(k)){
-        const p=prev.get(k);
-        path.push({r:p.r,c:p.c,dir:p.dir});
-        k=p.from;
-      }
-      return path.reverse();
-    }
-    for(const n of neighbors(r,c)){
-      const k=n.r+","+n.c;
-      if(!seen.has(k)){
-        seen.add(k);
-        prev.set(k,{from:r+","+c,r,c,dir:n.dir});
-        q.push([n.r,n.c]);
-      }
-    }
-  }
-  return [];
-}
-
-let aiKnown=false;
-let aiLastSeen={r:1,c:1};
-let aiSearchDir=null;
-
-function aiSeesPlayer(){
-  const a=players[2],h=players[1];
-  const radius=Date.now()<h.flashUntil?CFG.flashVision:CFG.vision;
-  return Math.abs(a.r-h.r)+Math.abs(a.c-h.c)<=radius;
-}
-
+let known=false,last={r:1,c:1},searchDir=null;
 function aiStep(){
-  if(mode!=="single"||finished||preview) return;
-  const a=players[2], h=players[1];
-
-  if(aiSeesPlayer()){
-    aiKnown=true;
-    aiLastSeen={r:h.r,c:h.c};
-  }
-
-  let dir=null;
-
-  if(aiKnown){
-    const path=pathToTarget(a.r,a.c,aiLastSeen.r,aiLastSeen.c);
-    if(path.length) dir=path[0].dir;
-    else aiKnown=false;
-  }
-
-  if(!dir){
-    const ns=neighbors(a.r,a.c);
-    if(ns.length){
-      if(!aiSearchDir || Math.random()<0.28){
-        aiSearchDir=ns[randInt(ns.length)].dir;
-      }
-      const candidate=ns.find(x=>x.dir===aiSearchDir);
-      dir=candidate?candidate.dir:ns[randInt(ns.length)].dir;
-    }
-  }
-
-  if(dir) move(2,dir);
-
-  // Occasionally use a flash while searching.
-  if(a.flashes>0 && Math.random()<0.018) flash(2);
-}
-
-function startAI(){
-  stopAI();
-  aiKnown=false;
-  aiSearchDir=null;
-  aiTimer=setInterval(aiStep,CFG.aiInterval);
-}
-
-function stopAI(){
-  if(aiTimer){ clearInterval(aiTimer); aiTimer=null; }
-}
-
-/* ---------------- Rendering ---------------- */
-
-function resizeCanvas(){
-  const maxW=Math.min(window.innerWidth-24, 620);
-  tile=Math.max(14,Math.floor(maxW/cols));
-  canvas.width=cols*tile;
-  canvas.height=rows*tile;
-}
-
-function ground(){
-  ctx.fillStyle="#10170f";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
-}
-
-function paths(){
-  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
-    if(grid[r][c]===0){
-      ctx.fillStyle=(r+c)%2?"#263522":"#293a25";
-      ctx.fillRect(c*tile,r*tile,tile,tile);
-    }
-  }
-}
-
-function decor(){
-  ctx.strokeStyle="rgba(255,255,255,.025)";
-  ctx.lineWidth=1;
-  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
-    if(grid[r][c]===1){
-      ctx.strokeRect(c*tile+.5,r*tile+.5,tile-1,tile-1);
-    }
-  }
-}
-
-function character(id){
-  const p=players[id];
-  const x=p.c*tile+tile/2,y=p.r*tile+tile/2;
-  ctx.save();
-  ctx.translate(x,y);
-  ctx.fillStyle=id===1?"#60a5fa":"#f97316";
-  ctx.beginPath();
-  ctx.arc(0,0,tile*.31,0,Math.PI*2);
-  ctx.fill();
-  ctx.fillStyle="#0b0f0b";
-  ctx.beginPath();
-  ctx.arc(-tile*.1,-tile*.06,tile*.05,0,Math.PI*2);
-  ctx.arc(tile*.1,-tile*.06,tile*.05,0,Math.PI*2);
-  ctx.fill();
-  ctx.restore();
-}
-
-function visibleTo(id,r,c){
-  const p=players[id];
-  const radius=Date.now()<p.flashUntil?CFG.flashVision:CFG.vision;
-  return Math.abs(p.r-r)+Math.abs(p.c-c)<=radius;
-}
-
-function darkness(){
-  ctx.save();
-  ctx.fillStyle="rgba(0,0,0,.86)";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
-
-  // Clear vision around the local player. In single-player this is P1;
-  // in multiplayer each device sees its own player.
-  const local=players[playerId()];
-  const radius=Date.now()<local.flashUntil?CFG.flashVision:CFG.vision;
-  const x=local.c*tile+tile/2,y=local.r*tile+tile/2;
-  const g=ctx.createRadialGradient(x,y,tile*.4,x,y,(radius+1)*tile);
-  g.addColorStop(0,"rgba(0,0,0,0)");
-  g.addColorStop(1,"rgba(0,0,0,.9)");
-  ctx.globalCompositeOperation="destination-out";
-  ctx.fillStyle=g;
-  ctx.beginPath();
-  ctx.arc(x,y,(radius+1)*tile,0,Math.PI*2);
-  ctx.fill();
-  ctx.restore();
-}
-
-function draw(){
-  resizeCanvas();
-  ground(); paths(); decor();
-
-  if(preview){
-    character(1); character(2);
-    ctx.fillStyle="rgba(0,0,0,.25)";
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-    return;
-  }
-
-  darkness();
-
-  const local=playerId();
-  character(local);
-
-  // Show opponent only when inside the local player's vision/flash range.
-  const other=local===1?2:1;
-  if(visibleTo(local,players[other].r,players[other].c)) character(other);
-
-  if(Date.now()<players[local].flashUntil){
-    const p=players[local];
-    ctx.strokeStyle="rgba(255,245,180,.55)";
-    ctx.lineWidth=3;
-    ctx.beginPath();
-    ctx.arc(p.c*tile+tile/2,p.r*tile+tile/2,CFG.flashVision*tile,0,Math.PI*2);
-    ctx.stroke();
-  }
+  if(mode!=="single"||finished||preview)return;
+  const a=players[2],h=players[1],rad=Date.now()<h.flashUntil?CFG.flashVision:CFG.vision;
+  if(Math.abs(a.r-h.r)+Math.abs(a.c-h.c)<=rad){known=true;last={r:h.r,c:h.c}}
+  let d=null;if(known){const path=bfs(a.r,a.c,last.r,last.c);if(path.length)d=path[0];else known=false}
+  const choices=ns(a.r,a.c);if(!d&&choices.length){if(!searchDir||Math.random()<.28)searchDir=choices[Math.floor(Math.random()*choices.length)].d;d=(choices.find(x=>x.d===searchDir)||choices[0]).d}
+  if(d)move(2,d);if(a.flashes>0&&Math.random()<.02)flash(2)
 }
 
 function ui(){
-  $("score1").textContent=scores[1];
-  $("score2").textContent=scores[2];
-  $("roundText").textContent="Round "+round+" · First to 3";
-  const id=playerId();
-  $("flashHud").textContent=players[id]?.flashes??0; $("myFlash").textContent=players[id]?.flashes??0;
+  $("score1").textContent=scores[1];$("score2").textContent=scores[2];$("roundText").textContent="Round "+round+" · First to 3";
+  $("myFlash").textContent=players[localId()]?.flashes??0
 }
-
-document.addEventListener("keydown",e=>{
-  const key=e.key.toLowerCase();
-  const id=playerId();
-
-  const map={
-    w:"up",arrowup:"up",
-    s:"down",arrowdown:"down",
-    a:"left",arrowleft:"left",
-    d:"right",arrowright:"right"
-  };
-
-  if(map[key]){
-    e.preventDefault();
-    move(id,map[key]);
-  }
-
-  if((id===1 && key==="q") || (id===2 && key==="/")){
-    e.preventDefault();
-    flash(id);
-  }
-});
-
-el("singleBtn")?.addEventListener("click",()=>{
-  el("homeActions").classList.add("hidden");
-  setJoinBox(false);
-  setSinglePanel(true);
-  setStatus("Ready to play against the computer.");
-});
-
-el("singleStartBtn")?.addEventListener("click",beginSingle);
-el("singleBackBtn")?.addEventListener("click",openLobby);
-el("createBtn")?.addEventListener("click",createGame);
-
-el("showJoinBtn")?.addEventListener("click",()=>{
-  el("homeActions").classList.add("hidden");
-  setSinglePanel(false);
-  setJoinBox(true);
-  el("codeInput").focus();
-  setStatus("Enter the 6-character game code.");
-});
-
-el("joinBtn")?.addEventListener("click",joinGame);
-el("backBtn")?.addEventListener("click",openLobby);
-el("startBtn")?.addEventListener("click",startMultiGame);
-el("leaveBtn")?.addEventListener("click",openLobby);
-
-document.querySelectorAll("[data-d]").forEach(btn=>{
-  btn.addEventListener("click",()=>move(playerId(),btn.dataset.d));
-});
-
-el("flashBtn")?.addEventListener("click",()=>flash(playerId()));
-
-el("nextBtn")?.addEventListener("click",()=>{
-  el("overlay").classList.remove("show");
-  if(mode==="single"){
-    if(Math.max(scores[1],scores[2])>=WIN){ openLobby(); return; }
-    round++;
-    resetRound(makeSeed());
-    startAI();
-    setStatus("Round "+round+" — GO!");
-  } else {
-    openLobby();
-  }
-});
-
-window.addEventListener("resize",resizeCanvas);
-
-setGameVisible(false);
-openLobby();
-setInterval(()=>{draw();ui();},120);
+function draw(){
+  const c=$("game"),max=Math.min(window.innerWidth-28,620),tile=Math.max(14,Math.floor(max/cols));
+  c.width=cols*tile;c.height=rows*tile;const x=c.getContext("2d");
+  x.fillStyle="#10170f";x.fillRect(0,0,c.width,c.height);
+  for(let r=0;r<rows;r++)for(let col=0;col<cols;col++)if(!grid[r][col]){x.fillStyle=(r+col)%2?"#263522":"#293a25";x.fillRect(col*tile,r*tile,tile,tile)}
+  if(preview){drawP(x,1,tile);drawP(x,2,tile);return}
+  x.fillStyle="rgba(0,0,0,.86)";x.fillRect(0,0,c.width,c.height);
+  const me=players[localId()],rad=Date.now()<me.flashUntil?CFG.flashVision:CFG.vision,cx=me.c*tile+tile/2,cy=me.r*tile+tile/2;
+  x.globalCompositeOperation="destination-out";const g=x.createRadialGradient(cx,cy,tile*.35,cx,cy,(rad+1)*tile);g.addColorStop(0,"rgba(0,0,0,1)");g.addColorStop(1,"rgba(0,0,0,0)");x.fillStyle=g;x.beginPath();x.arc(cx,cy,(rad+1)*tile,0,Math.PI*2);x.fill();x.globalCompositeOperation="source-over";
+  drawP(x,localId(),tile);
+  const other=localId()===1?2:1,op=players[other];if(Math.abs(me.r-op.r)+Math.abs(me.c-op.c)<=rad)drawP(x,other,tile)
+}
+function drawP(x,id,t){
+  const p=players[id],cx=p.c*t+t/2,cy=p.r*t+t/2;x.fillStyle=id===1?"#60a5fa":"#f97316";x.beginPath();x.arc(cx,cy,t*.3,0,Math.PI*2);x.fill()
+}
+setInterval(()=>{draw();ui()},120);
+showLobby();
 </script>
 </body>
 </html>
