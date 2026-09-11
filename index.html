@@ -39,6 +39,7 @@ const supabaseClient = window.supabase.createClient(
   SUPABASE_URL,
   SUPABASE_PUBLISHABLE_KEY
 );
+
 const testChannel = supabaseClient
   .channel("blind-path-test")
   .on("broadcast", { event: "test" }, ({ payload }) => {
