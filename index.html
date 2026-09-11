@@ -545,80 +545,284 @@ camera.lookAt(
 
 function makeGround(){
 
-  const geo =
+  /* =====================================================
+     LARGE FOREST FLOOR
+  ===================================================== */
+
+  const groundGeo =
     new THREE.PlaneGeometry(
-      180,
-      180
+      320,
+      320,
+      40,
+      40
     );
 
-  const mat =
+  const groundMat =
     new THREE.MeshStandardMaterial({
-      color:0x101810,
-      roughness:1
+      color:0x17221a,
+      roughness:1,
+      metalness:0
     });
 
   const ground =
     new THREE.Mesh(
-      geo,
-      mat
+      groundGeo,
+      groundMat
     );
 
   ground.rotation.x =
     -Math.PI / 2;
+
+  ground.position.y =
+    -0.08;
 
   ground.receiveShadow = true;
 
   scene.add(ground);
 
 
-  /* -------------------------------------------------------
-     WINDING PATH
-  ------------------------------------------------------- */
+  /* =====================================================
+     NATURAL FOREST FLOOR PATCHES
+     
+     These break up the completely flat green surface.
+  ===================================================== */
+
+  const patchMaterials = [
+
+    new THREE.MeshStandardMaterial({
+      color:0x1b271d,
+      roughness:1
+    }),
+
+    new THREE.MeshStandardMaterial({
+      color:0x20291d,
+      roughness:1
+    }),
+
+    new THREE.MeshStandardMaterial({
+      color:0x141d16,
+      roughness:1
+    }),
+
+    new THREE.MeshStandardMaterial({
+      color:0x25291b,
+      roughness:1
+    })
+
+  ];
+
+
+  for(let i=0;i<100;i++){
+
+    const patch =
+      new THREE.Mesh(
+        new THREE.CircleGeometry(
+          1.5 + Math.random()*3.5,
+          12
+        ),
+        patchMaterials[
+          Math.floor(
+            Math.random() *
+            patchMaterials.length
+          )
+        ]
+      );
+
+    patch.rotation.x =
+      -Math.PI / 2;
+
+    patch.position.set(
+
+      (Math.random()-0.5)*150,
+
+      0.01,
+
+      (Math.random()-0.5)*150
+
+    );
+
+    patch.scale.set(
+      1 + Math.random()*2,
+      1 + Math.random()*0.8,
+      1
+    );
+
+    patch.receiveShadow = true;
+
+    scene.add(patch);
+  }
+
+
+  /* =====================================================
+     NATURAL WINDING PATH
+  ===================================================== */
 
   const pathMat =
     new THREE.MeshStandardMaterial({
-      color:0x493d2b,
+      color:0x554833,
       roughness:1
     });
 
 
-  for(let i=0;i<38;i++){
+  /*
+     Instead of many rectangular pieces,
+     create one continuous winding path.
+  */
+
+  const pathPoints = [];
+
+  const pathLength = 125;
+
+  const segments = 55;
+
+
+  for(let i=0;i<=segments;i++){
+
+    const t =
+      i / segments;
 
     const z =
-      8 - i * 3.4;
+      12 -
+      t * pathLength;
 
     const x =
-      Math.sin(i * 0.65) * 4.5;
+      Math.sin(t * Math.PI * 3.2) * 5.5
+      +
+      Math.sin(t * Math.PI * 7) * 1.2;
+
+    pathPoints.push({
+      x:x,
+      z:z
+    });
+
+  }
+
+
+  /*
+     Build the path from connected
+     trapezoid sections.
+  */
+
+  for(let i=0;i<pathPoints.length-1;i++){
+
+    const a =
+      pathPoints[i];
+
+    const b =
+      pathPoints[i+1];
+
+
+    const dx =
+      b.x - a.x;
+
+    const dz =
+      b.z - a.z;
+
+
+    const length =
+      Math.sqrt(
+        dx*dx +
+        dz*dz
+      );
+
+
+    const angle =
+      Math.atan2(
+        dx,
+        dz
+      );
+
 
     const path =
       new THREE.Mesh(
         new THREE.PlaneGeometry(
-          3.2,
-          4.8
+          3.4,
+          length + 0.25
         ),
         pathMat
       );
 
+
     path.rotation.x =
       -Math.PI / 2;
 
+
     path.rotation.z =
-      Math.sin(i * 0.65) * 0.12;
+      angle;
+
 
     path.position.set(
-      x,
-      0.015,
-      z
+
+      (a.x+b.x)/2,
+
+      0.025,
+
+      (a.z+b.z)/2
+
     );
+
 
     path.receiveShadow = true;
 
     scene.add(path);
+
+  }
+
+
+  /* =====================================================
+     SMALL GRASS / DIRT DETAILS
+  ===================================================== */
+
+  const detailMat =
+    new THREE.MeshStandardMaterial({
+      color:0x303523,
+      roughness:1
+    });
+
+
+  for(let i=0;i<160;i++){
+
+    const detail =
+      new THREE.Mesh(
+        new THREE.ConeGeometry(
+          0.04 +
+          Math.random()*0.06,
+
+          0.15 +
+          Math.random()*0.25,
+
+          4
+        ),
+        detailMat
+      );
+
+
+    const x =
+      (Math.random()-0.5)*145;
+
+    const z =
+      (Math.random()-0.5)*145;
+
+
+    detail.position.set(
+      x,
+      0.08,
+      z
+    );
+
+
+    detail.rotation.y =
+      Math.random() *
+      Math.PI;
+
+
+    detail.castShadow = true;
+
+    scene.add(detail);
+
   }
 
 }
-
-
 /* =========================================================
    TREE
 ========================================================= */
@@ -752,8 +956,11 @@ function makeForest(){
         : 1;
 
     const x =
-      side *
-      (6 + Math.random() * 30);
+  side *
+  (
+    7 +
+    Math.random() * 32
+  );
 
     const z =
       15 -
