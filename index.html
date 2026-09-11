@@ -242,7 +242,7 @@ canvas{
   <button class="ctrl" id="down" type="button">▼</button>
 </div>
 
-<div id="hint">WASD / Arrow Keys · Find the exit</div>
+<div id="hint">WASD / Arrow Keys · 🔦 Flash reveals the path for 5 seconds</div>
 
 <!-- Keep your local Three.js file -->
 <script src="js/three.min.js"></script>
@@ -347,7 +347,7 @@ function init(){
   scene.fog =
     new THREE.FogExp2(
       0x07100a,
-      0.010
+      0.018
     );
 
 
@@ -418,17 +418,17 @@ function init(){
 
   scene.add(
     new THREE.HemisphereLight(
-      0xb6cfb8,
-      0x263127,
-      2.0
+      0x6f8873,
+      0x101810,
+      0.55
     )
   );
 
 
   const moon =
     new THREE.DirectionalLight(
-      0xd3e0ff,
-      2.5
+      0x9eafd0,
+      0.48
     );
 
   moon.position.set(
@@ -711,13 +711,13 @@ function buildPaths(){
 
   const pathMat =
     new THREE.MeshStandardMaterial({
-      color:0x667d60,
+      color:0x344a36,
       roughness:1
     });
 
   const dirtMat =
     new THREE.MeshStandardMaterial({
-      color:0x796047,
+      color:0x463a2d,
       roughness:1
     });
 
@@ -1805,8 +1805,8 @@ function flash(){
   flashLight =
     new THREE.PointLight(
       0xfff2c2,
-      32,
-      18,
+      42,
+      20,
       2
     );
 
@@ -1837,7 +1837,7 @@ function flash(){
       }
 
     },
-    900
+    5000
   );
 
 }
