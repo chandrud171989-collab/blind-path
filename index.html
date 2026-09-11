@@ -155,10 +155,12 @@ const canvas = $("game");
 const ctx = canvas.getContext("2d");
 
 function setStatus(msg, cls="") {
-  const el = $("status");
+  const el = $("lobbyStatus");
   if (!el) return;
   el.textContent = msg;
-  el.className = cls;
+  el.className = "lobbyStatus" + (cls ? " " + cls : "");
+  const msgEl = $("message");
+  if (msgEl) msgEl.textContent = msg;
 }
 
 function show(id, yes=true) {
@@ -226,15 +228,24 @@ function resetRound(newSeed) {
   setTimeout(()=>{ preview=false; }, CFG.preview);
 }
 
+
+function el(id){ return document.getElementById(id); }
+function setGameVisible(yes){ el("gameApp").classList.toggle("hidden", !yes); }
+function setSinglePanel(yes){ el("singlePanel").classList.toggle("hidden", !yes); }
+function setRoomPanel(yes){ el("roomPanel").classList.toggle("hidden", !yes); }
+function setJoinBox(yes){ el("joinBox").classList.toggle("hidden", !yes); }
+
 function openLobby() {
-  mode = null; role = null;
-  gameCode = "";
+  mode = null; role = null; gameCode = "";
   stopAI();
   if(channel){ supabase.removeChannel(channel); channel=null; }
-  show("lobby", true);
-  show("gameArea", false);
-  show("multiPanel", false);
-  show("singlePanel", false);
+
+  el("lobby").classList.remove("hidden");
+  setGameVisible(false);
+  setSinglePanel(false);
+  setRoomPanel(false);
+  setJoinBox(false);
+  el("homeActions").classList.remove("hidden");
   setStatus("");
 }
 
@@ -243,15 +254,18 @@ function beginSingle() {
   role = "p1";
   scores={1:0,2:0};
   round=1;
-  show("lobby", false);
-  show("gameArea", true);
-  show("multiPanel", false);
-  show("singlePanel", true);
-  $("roleLabel").textContent = "YOU ARE PLAYER 1";
-  $("controls").textContent = "WASD / Arrow Keys • Q = Flash";
+
+  el("lobby").classList.add("hidden");
+  setGameVisible(true);
+  setSinglePanel(false);
+  setRoomPanel(false);
+
+  $("roleBadge").textContent = "PLAYER 1 · VS COMPUTER";
+  $("controlTitle").textContent = "PLAYER 1";
   resetRound(makeSeed());
   startAI();
   setStatus("Find the other player before they find you.");
+  ui();
 }
 
 async function createGame() {
@@ -259,12 +273,12 @@ async function createGame() {
   scores={1:0,2:0}; round=1;
   gameCode = Math.random().toString(36).slice(2,8).toUpperCase();
 
-  show("lobby", false);
-  show("gameArea", true);
-  show("multiPanel", true);
-  show("singlePanel", false);
-  $("roleLabel").textContent="PLAYER 1";
-  $("controls").textContent="WASD / Arrow Keys • Q = Flash";
+  el("lobby").classList.add("hidden");
+  setGameVisible(true);
+  setRoomPanel(true);
+  setSinglePanel(false);
+  $("roleBadge").textContent="PLAYER 1 · HOST";
+  $("controlTitle").textContent="PLAYER 1";
   $("roomCode").textContent=gameCode;
   $("p1State").textContent="Connected";
   $("p2State").textContent="Waiting…";
@@ -281,7 +295,7 @@ async function createGame() {
 }
 
 async function joinGame() {
-  const input = $("joinCode");
+  const input = $("codeInput");
   const code = (input.value||"").trim().toUpperCase();
   if(code.length!==6){ setStatus("Enter the 6-character game code."); return; }
 
@@ -289,15 +303,16 @@ async function joinGame() {
   gameCode=code;
   scores={1:0,2:0}; round=1;
 
-  show("lobby", false);
-  show("gameArea", true);
-  show("multiPanel", true);
-  show("singlePanel", false);
-  $("roleLabel").textContent="PLAYER 2";
-  $("controls").textContent="Arrow Keys / WASD • / = Flash";
+  el("lobby").classList.add("hidden");
+  setGameVisible(true);
+  setRoomPanel(true);
+  setSinglePanel(false);
+  $("roleBadge").textContent="PLAYER 2 · JOINED";
+  $("controlTitle").textContent="PLAYER 2";
   $("roomCode").textContent=gameCode;
   $("p1State").textContent="Waiting…";
   $("p2State").textContent="Connected";
+  $("startBtn").classList.add("hidden");
   setStatus("Connecting to Player 1…");
 
   await joinChannel();
@@ -336,7 +351,10 @@ function updatePresence(){
   const has2=list.some(x=>x.role==="p2");
   if($("p1State")) $("p1State").textContent=has1?"Connected":"Waiting…";
   if($("p2State")) $("p2State").textContent=has2?"Connected":"Waiting…";
-  if(mode==="multi" && role==="p1" && has2) setStatus("Player 2 connected. Press Start Game.");
+  if(mode==="multi" && role==="p1" && has2){
+    $("startBtn").classList.remove("hidden");
+    setStatus("Player 2 connected. Press Start Game.");
+  }
 }
 
 function handleLobby(p){
@@ -712,9 +730,9 @@ function draw(){
 function ui(){
   $("score1").textContent=scores[1];
   $("score2").textContent=scores[2];
-  $("round").textContent="Round "+round;
+  $("roundText").textContent="Round "+round+" · First to 3";
   const id=playerId();
-  $("flashCount").textContent=players[id]?.flashes??0;
+  $("flashHud").textContent=players[id]?.flashes??0; $("myFlash").textContent=players[id]?.flashes??0;
 }
 
 document.addEventListener("keydown",e=>{
@@ -739,14 +757,52 @@ document.addEventListener("keydown",e=>{
   }
 });
 
-$("singleBtn")?.addEventListener("click",beginSingle);
-$("createBtn")?.addEventListener("click",createGame);
-$("joinBtn")?.addEventListener("click",joinGame);
-$("startBtn")?.addEventListener("click",startMultiGame);
-$("backBtn")?.addEventListener("click",openLobby);
+el("singleBtn")?.addEventListener("click",()=>{
+  el("homeActions").classList.add("hidden");
+  setJoinBox(false);
+  setSinglePanel(true);
+  setStatus("Ready to play against the computer.");
+});
+
+el("singleStartBtn")?.addEventListener("click",beginSingle);
+el("singleBackBtn")?.addEventListener("click",openLobby);
+el("createBtn")?.addEventListener("click",createGame);
+
+el("showJoinBtn")?.addEventListener("click",()=>{
+  el("homeActions").classList.add("hidden");
+  setSinglePanel(false);
+  setJoinBox(true);
+  el("codeInput").focus();
+  setStatus("Enter the 6-character game code.");
+});
+
+el("joinBtn")?.addEventListener("click",joinGame);
+el("backBtn")?.addEventListener("click",openLobby);
+el("startBtn")?.addEventListener("click",startMultiGame);
+el("leaveBtn")?.addEventListener("click",openLobby);
+
+document.querySelectorAll("[data-d]").forEach(btn=>{
+  btn.addEventListener("click",()=>move(playerId(),btn.dataset.d));
+});
+
+el("flashBtn")?.addEventListener("click",()=>flash(playerId()));
+
+el("nextBtn")?.addEventListener("click",()=>{
+  el("overlay").classList.remove("show");
+  if(mode==="single"){
+    if(Math.max(scores[1],scores[2])>=WIN){ openLobby(); return; }
+    round++;
+    resetRound(makeSeed());
+    startAI();
+    setStatus("Round "+round+" — GO!");
+  } else {
+    openLobby();
+  }
+});
 
 window.addEventListener("resize",resizeCanvas);
 
+setGameVisible(false);
 openLobby();
 setInterval(()=>{draw();ui();},120);
 </script>
