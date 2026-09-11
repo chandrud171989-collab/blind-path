@@ -18,63 +18,737 @@ body{display:flex;justify-content:center;padding:14px 10px 28px}.app{width:100%;
 .pad button{font-size:17px}.flash{width:100%;margin-top:7px;min-height:38px}.help{text-align:center;color:var(--muted);font-size:11px;margin:11px 2px 1px;line-height:1.5}
 .overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:18px;background:#020503d1;backdrop-filter:blur(8px);z-index:20}.overlay.show{display:flex}.modal{width:min(390px,100%);padding:26px 21px;border:1px solid var(--border);border-radius:22px;background:#111a14;text-align:center;box-shadow:0 30px 90px #0009}.modal h2{margin:0;font-size:25px}.stars{margin:8px 0 4px;color:#ffd166;font-size:31px}.details{color:var(--muted);font-size:13px;margin:0 0 17px;line-height:1.55}.primary{width:100%;min-height:48px;border:0;background:var(--p1);color:#06120d;font-size:14px;font-weight:950}
 @media(max-width:560px){body{padding:8px 6px 22px}.logo{font-size:20px}.card{padding:8px;border-radius:18px}.controls{gap:7px}.controlBox{padding:7px}.controlTitle{font-size:10px}.pad button{min-height:38px}}
+
+.lobby{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:18px;background:#050806;z-index:50}
+.lobbyCard{width:min(430px,100%);background:#0d130f;border:1px solid var(--border);border-radius:24px;padding:24px;box-shadow:0 30px 90px #0009;text-align:center}
+.lobbyTitle{font-size:30px;font-weight:950;letter-spacing:2px;margin-bottom:4px}.lobbyTitle span{color:var(--p1)}
+.lobbySub{color:var(--muted);font-size:13px;margin:0 0 22px}
+.lobbyActions{display:grid;gap:10px}
+.lobbyBtn{width:100%;min-height:50px;font-size:14px;font-weight:900}
+.lobbyBtn.primary{background:var(--p1);color:#06120d;border:0}
+.lobbyBtn.secondary{background:#19251e}
+.joinBox{display:none;margin-top:14px}
+.joinBox.show{display:block}
+.codeInput{width:100%;height:54px;border-radius:13px;border:1px solid #304036;background:#08100b;color:#eef5ef;text-align:center;font-size:24px;font-weight:950;letter-spacing:6px;text-transform:uppercase;outline:none}
+.codeInput:focus{border-color:var(--p1)}
+.lobbyStatus{min-height:20px;color:var(--muted);font-size:12px;margin-top:13px;line-height:1.5}
+.roomCode{font-size:38px;font-weight:950;letter-spacing:8px;color:var(--p1);margin:8px 0 4px}
+.roleBadge{display:inline-block;padding:6px 10px;border-radius:10px;background:#18251d;border:1px solid var(--border);font-size:11px;font-weight:900;margin-bottom:10px}
+.playerList{display:grid;gap:7px;margin:16px 0;text-align:left}
+.playerState{padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#101813;font-size:12px;font-weight:800}
+.playerState.connected{border-color:#286a5c}
+.hidden{display:none!important}
 </style></head><body>
-<main class="app"><header class="header"><div class="logo">BLIND <span>PATH</span></div><div class="round">HIDE &amp; SEEK<br><strong id="roundText">Round 1 · First to 3</strong></div></header>
-<section class="card"><div class="status"><div class="msg" id="message">Memorize the forest…</div><div class="scores"><div class="score p1">P1 <span id="score1">0</span></div><div class="score p2">P2 <span id="score2">0</span></div></div></div>
-<div class="stage"><canvas id="game"></canvas><div class="hud"><div class="badge" id="stateBadge">PREVIEW</div><div class="badge">🔦 Flash: <span id="flashHud">3 / 3</span></div></div></div>
-<div class="controls">
-<div class="controlBox"><div class="controlTitle p1">PLAYER 1 · WASD</div><div class="pad"><button class="blank"></button><button data-p="1" data-d="up">▲</button><button class="blank"></button><button data-p="1" data-d="left">◀</button><button data-p="1" data-d="down">▼</button><button data-p="1" data-d="right">▶</button></div><button class="flash p1" data-flash="1">⚡ Flash <span id="f1">3</span></button></div>
-<div class="controlBox"><div class="controlTitle p2">PLAYER 2 · ARROWS</div><div class="pad"><button class="blank"></button><button data-p="2" data-d="up">▲</button><button class="blank"></button><button data-p="2" data-d="left">◀</button><button data-p="2" data-d="down">▼</button><button data-p="2" data-d="right">▶</button></div><button class="flash p2" data-flash="2">⚡ Flash <span id="f2">3</span></button></div>
-</div><p class="help">Find the other player before they find you. The hidden grid controls movement; you only see a natural forest path.</p></section></main>
+<div class="lobby" id="lobby">
+  <div class="lobbyCard">
+    <div class="lobbyTitle">BLIND <span>PATH</span></div>
+    <p class="lobbySub">HIDE &amp; SEEK · TWO-DEVICE MULTIPLAYER</p>
+
+    <div id="homeActions" class="lobbyActions">
+      <button class="lobbyBtn primary" id="singleBtn">Play vs Computer</button>
+      <button class="lobbyBtn secondary" id="createBtn">Create Game</button>
+      <button class="lobbyBtn secondary" id="showJoinBtn">Join Game</button>
+    </div>
+
+    <div id="joinBox" class="joinBox">
+      <input id="codeInput" class="codeInput" maxlength="6" inputmode="text" autocomplete="off" placeholder="ABC123" aria-label="Game code">
+      <div class="lobbyActions" style="margin-top:10px">
+        <button class="lobbyBtn primary" id="joinBtn">Join Game</button>
+        <button class="lobbyBtn secondary" id="backBtn">Back</button>
+      </div>
+    </div>
+
+    <div id="singlePanel" class="hidden">
+      <div class="roleBadge">PLAYER 1 · VS COMPUTER</div>
+      <div style="font-size:13px;color:var(--muted);margin:10px 0 16px">You are Player 1. The computer is Player 2.</div>
+      <div class="lobbyActions">
+        <button class="lobbyBtn primary" id="singleStartBtn">Start Game</button>
+        <button class="lobbyBtn secondary" id="singleBackBtn">Back</button>
+      </div>
+    </div>
+
+    <div id="roomPanel" class="hidden">
+      <div class="roleBadge" id="roleBadge">PLAYER 1 · HOST</div>
+      <div class="roomCode" id="roomCode">------</div>
+      <div style="font-size:12px;color:var(--muted)">Share this code with Player 2</div>
+      <div class="playerList">
+        <div class="playerState connected" id="p1State">● Player 1 · Connected</div>
+        <div class="playerState" id="p2State">○ Player 2 · Waiting...</div>
+      </div>
+      <button class="lobbyBtn primary hidden" id="startBtn">Start Game</button>
+      <button class="lobbyBtn secondary" id="leaveBtn" style="margin-top:8px">Leave Game</button>
+    </div>
+
+    <div class="lobbyStatus" id="lobbyStatus"></div>
+  </div>
+</div>
+
+<main class="app" id="gameApp">
+  <header class="header"><div class="logo">BLIND <span>PATH</span></div><div class="round">HIDE &amp; SEEK<br><strong id="roundText">Round 1 · First to 3</strong></div></header>
+  <section class="card">
+    <div class="status"><div class="msg" id="message">Waiting for game…</div><div class="scores"><div class="score p1">P1 <span id="score1">0</span></div><div class="score p2">P2 <span id="score2">0</span></div></div></div>
+    <div class="stage"><canvas id="game"></canvas><div class="hud"><div class="badge" id="stateBadge">WAITING</div><div class="badge">🔦 Flash: <span id="flashHud">3</span></div></div></div>
+    <div class="controls" id="controls">
+      <div class="controlBox" id="myControls">
+        <div class="controlTitle" id="controlTitle">PLAYER</div>
+        <div class="pad">
+          <button class="blank"></button><button data-d="up">▲</button><button class="blank"></button>
+          <button data-d="left">◀</button><button data-d="down">▼</button><button data-d="right">▶</button>
+        </div>
+        <button class="flash" id="flashBtn">⚡ Flash <span id="myFlash">3</span></button>
+      </div>
+    </div>
+    <p class="help">Find the other player before they find you. The hidden grid controls movement; you only see a natural forest path.</p>
+  </section>
+</main>
 <div class="overlay" id="overlay"><div class="modal"><h2 id="resultTitle"></h2><div class="stars">★</div><p class="details" id="resultDetails"></p><button class="primary" id="nextBtn">Next Round</button></div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.0"></script>
 <script>
-"use strict";
+/* =========================================================
+   BLIND PATH — Shared Game Engine
+   Modes:
+     - single: P1 human, P2 computer
+     - multi:  P1/P2 on separate devices via Supabase Realtime
+   ========================================================= */
 
 const SUPABASE_URL = "https://daiykupnjfbcsycimxmz.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_DsXWL1_SIpxoC0yA2MNN1w_70D7pRQI";
+const SUPABASE_KEY = "sb_publishable_DsXWL1_SIpxoC0yA2MNN1w_70D7pRQI";
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const supabaseClient = window.supabase.createClient(
-  SUPABASE_URL,
-  SUPABASE_PUBLISHABLE_KEY
-);
+const CFG = {
+  preview: 3500,
+  vision: 2,
+  flashVision: 4,
+  flashDuration: 1300,
+  flashes: 3,
+  aiInterval: 520,
+  moveInterval: 90
+};
+const WIN = 3;
+const MAX = 5;
 
-const testChannel = supabaseClient
-  .channel("blind-path-test")
-  .on("broadcast", { event: "test" }, ({ payload }) => {
-    console.log("Blind Path Realtime received:", payload);
-  })
-  .subscribe((status) => {
-    console.log("Blind Path Realtime:", status);
+let mode = null;                 // "single" | "multi"
+let role = null;                 // "p1" | "p2" in multiplayer
+let round = 1;
+let scores = {1: 0, 2: 0};
+let rows = 15, cols = 15, tile = 20;
+let grid = [];
+let seed = 0;
+let preview = true;
+let finished = false;
+let started = 0;
+let channel = null;
+let gameCode = "";
+let aiTimer = null;
+let moveLocked = false;
+let lastBroadcastMove = 0;
+
+let players = {
+  1: {r:1, c:1, dir:"down", flashes:CFG.flashes, moves:0, flashUntil:0},
+  2: {r:13, c:13, dir:"up", flashes:CFG.flashes, moves:0, flashUntil:0}
+};
+
+const $ = id => document.getElementById(id);
+const canvas = $("game");
+const ctx = canvas.getContext("2d");
+
+function setStatus(msg, cls="") {
+  const el = $("status");
+  if (!el) return;
+  el.textContent = msg;
+  el.className = cls;
+}
+
+function show(id, yes=true) {
+  const el = $(id);
+  if (el) el.style.display = yes ? "" : "none";
+}
+
+function randInt(n) { return Math.floor(Math.random()*n); }
+
+function makeSeed() {
+  return Math.floor(Math.random()*0x7fffffff);
+}
+
+/* Deterministic PRNG so both multiplayer devices build the same maze. */
+function rngFromSeed(s) {
+  let x = (s >>> 0) || 1;
+  return () => {
+    x ^= x << 13; x >>>= 0;
+    x ^= x >>> 17; x >>>= 0;
+    x ^= x << 5; x >>>= 0;
+    return (x >>> 0) / 4294967296;
+  };
+}
+
+function maze(seedValue) {
+  const rng = rngFromSeed(seedValue);
+  grid = Array.from({length:rows},()=>Array(cols).fill(1));
+
+  function carve(r,c) {
+    grid[r][c]=0;
+    const ds=[[0,2],[0,-2],[2,0],[-2,0]];
+    for(let i=ds.length-1;i>0;i--){
+      const j=Math.floor(rng()*(i+1));
+      [ds[i],ds[j]]=[ds[j],ds[i]];
+    }
+    for(const [dr,dc] of ds){
+      const nr=r+dr,nc=c+dc;
+      if(nr>0&&nr<rows-1&&nc>0&&nc<cols-1&&grid[nr][nc]===1){
+        grid[r+dr/2][c+dc/2]=0;
+        carve(nr,nc);
+      }
+    }
+  }
+  carve(1,1);
+
+  // Keep both spawn cells reachable/open.
+  grid[1][1]=0;
+  grid[rows-2][cols-2]=0;
+}
+
+function resetPlayers() {
+  players = {
+    1:{r:1,c:1,dir:"down",flashes:CFG.flashes,moves:0,flashUntil:0},
+    2:{r:rows-2,c:cols-2,dir:"up",flashes:CFG.flashes,moves:0,flashUntil:0}
+  };
+}
+
+function resetRound(newSeed) {
+  seed = newSeed ?? makeSeed();
+  maze(seed);
+  resetPlayers();
+  preview = true;
+  finished = false;
+  started = Date.now();
+  setTimeout(()=>{ preview=false; }, CFG.preview);
+}
+
+function openLobby() {
+  mode = null; role = null;
+  gameCode = "";
+  stopAI();
+  if(channel){ supabase.removeChannel(channel); channel=null; }
+  show("lobby", true);
+  show("gameArea", false);
+  show("multiPanel", false);
+  show("singlePanel", false);
+  setStatus("");
+}
+
+function beginSingle() {
+  mode = "single";
+  role = "p1";
+  scores={1:0,2:0};
+  round=1;
+  show("lobby", false);
+  show("gameArea", true);
+  show("multiPanel", false);
+  show("singlePanel", true);
+  $("roleLabel").textContent = "YOU ARE PLAYER 1";
+  $("controls").textContent = "WASD / Arrow Keys • Q = Flash";
+  resetRound(makeSeed());
+  startAI();
+  setStatus("Find the other player before they find you.");
+}
+
+async function createGame() {
+  mode="multi"; role="p1";
+  scores={1:0,2:0}; round=1;
+  gameCode = Math.random().toString(36).slice(2,8).toUpperCase();
+
+  show("lobby", false);
+  show("gameArea", true);
+  show("multiPanel", true);
+  show("singlePanel", false);
+  $("roleLabel").textContent="PLAYER 1";
+  $("controls").textContent="WASD / Arrow Keys • Q = Flash";
+  $("roomCode").textContent=gameCode;
+  $("p1State").textContent="Connected";
+  $("p2State").textContent="Waiting…";
+  setStatus("Share the code with Player 2.");
+
+  await joinChannel();
+  resetRound(makeSeed());
+
+  await channel.send({
+    type:"broadcast",
+    event:"lobby",
+    payload:{type:"room_init", seed, round, scores}
   });
-const canvas=document.getElementById("game"),ctx=canvas.getContext("2d");
-const msg=document.getElementById("message"),roundText=document.getElementById("roundText"),s1=document.getElementById("score1"),s2=document.getElementById("score2"),badge=document.getElementById("stateBadge"),fh=document.getElementById("flashHud"),f1=document.getElementById("f1"),f2=document.getElementById("f2"),overlay=document.getElementById("overlay"),title=document.getElementById("resultTitle"),details=document.getElementById("resultDetails"),next=document.getElementById("nextBtn");
-const CFG={preview:3500,vision:2,flashVision:4,flashDuration:1300,flashes:3},WIN=3,MAX=5;
-let round=1,scores={1:0,2:0},rows=15,cols=15,tile=20,grid=[],preview=true,finished=false,started=0,seed=Math.random()*1e5;
-let players={1:{r:1,c:1,dir:"down",flashes:3,moves:0,flashUntil:0},2:{r:13,c:13,dir:"up",flashes:3,moves:0,flashUntil:0}};
-function resize(){let q=canvas.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1);canvas.width=q.width*d;canvas.height=q.height*d;ctx.setTransform(d,0,0,d,0,0);tile=q.width/cols;draw()}addEventListener("resize",resize);
-function maze(){rows=cols=Math.min(25,15+2*Math.floor((round-1)/2));grid=Array.from({length:rows},()=>Array(cols).fill(1));let st=[[1,1]];grid[1][1]=0;while(st.length){let [r,c]=st[st.length-1],ds=[[2,0],[-2,0],[0,2],[0,-2]].sort(()=>Math.random()-.5),ok=0;for(let [dr,dc] of ds){let R=r+dr,C=c+dc;if(R>0&&R<rows-1&&C>0&&C<cols-1&&grid[R][C]){grid[r+dr/2][c+dc/2]=0;grid[R][C]=0;st.push([R,C]);ok=1;break}}if(!ok)st.pop()}}
-function reset(){maze();players={1:{r:1,c:1,dir:"down",flashes:3,moves:0,flashUntil:0},2:{r:rows-2,c:cols-2,dir:"up",flashes:3,moves:0,flashUntil:0}};grid[1][1]=grid[rows-2][cols-2]=0;preview=true;finished=false;started=Date.now();ui();resize();msg.textContent="Memorize the forest paths…";badge.textContent="PREVIEW";setTimeout(()=>{if(finished)return;preview=false;started=Date.now();msg.textContent="Find the other player.";badge.textContent="HIDE & SEEK"},CFG.preview)}
-function inside(r,c){return r>=0&&r<rows&&c>=0&&c<cols}function wall(r,c){return !inside(r,c)||grid[r][c]}
-function move(id,dir){if(preview||finished)return;let p=players[id],d={up:[-1,0],down:[1,0],left:[0,-1],right:[0,1]}[dir];if(!d)return;p.dir=dir;let r=p.r+d[0],c=p.c+d[1];if(wall(r,c)){msg.textContent=`Player ${id}: blocked by the forest.`;return}p.r=r;p.c=c;p.moves++;if(p.r===players[id===1?2:1].r&&p.c===players[id===1?2:1].c)return win(id);draw()}
-function flash(id){if(preview||finished||players[id].flashes<1)return;players[id].flashes--;players[id].flashUntil=Date.now()+CFG.flashDuration;msg.textContent=`Player ${id} used FLASH!`;ui()}
-function win(id){finished=true;scores[id]++;ui();let t=(Date.now()-started)/1000;title.textContent=`Player ${id} Found the Opponent!`;details.textContent=`Round ${round} · ${t.toFixed(1)} seconds · Score ${scores[1]} — ${scores[2]}`;next.textContent=scores[id]>=WIN||round>=MAX?"Finish Match":"Next Round";overlay.classList.add("show")}
-function ui(){s1.textContent=scores[1];s2.textContent=scores[2];roundText.textContent=`Round ${round} · First to ${WIN}`;f1.textContent=players[1].flashes;f2.textContent=players[2].flashes;fh.textContent=`${players[1].flashes} / ${players[2].flashes}`}
-function advance(){overlay.classList.remove("show");if(scores[1]>=WIN||scores[2]>=WIN||round>=MAX){let w=scores[1]>scores[2]?1:2;title.textContent=scores[1]===scores[2]?"Match Draw":`🏆 Player ${w} Wins the Match!`;details.textContent=`Final score: ${scores[1]} — ${scores[2]}`;next.textContent="Play Again";next.onclick=()=>{scores={1:0,2:0};round=1;overlay.classList.remove("show");next.onclick=advance;reset()};overlay.classList.add("show");return}round++;next.onclick=advance;reset()}next.onclick=advance;
-document.querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>move(+b.dataset.p,b.dataset.d));document.querySelectorAll("[data-flash]").forEach(b=>b.onclick=()=>flash(+b.dataset.flash));
-document.onkeydown=e=>{let a={w:"up",a:"left",s:"down",d:"right"},b={ArrowUp:"up",ArrowLeft:"left",ArrowDown:"down",ArrowRight:"right"};if(a[e.key]){e.preventDefault();move(1,a[e.key])}if(b[e.key]){e.preventDefault();move(2,b[e.key])}if(e.key.toLowerCase()=="q"){e.preventDefault();flash(1)}if(e.key=="/"){e.preventDefault();flash(2)}};
+}
 
-function noise(r,c){let n=Math.sin((r*127.1+c*311.7+seed)*.017)*43758.5;return n-Math.floor(n)}
-function pt(r,c){return{x:c*tile+tile/2,y:r*tile+tile/2}}
-function ground(){let w=canvas.clientWidth,h=canvas.clientHeight;ctx.fillStyle="#0b160e";ctx.fillRect(0,0,w,h);for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){let x=c*tile,y=r*tile;if(!grid[r][c]){ctx.fillStyle=noise(r,c)>.5?"#29402a":"#233923";ctx.fillRect(x,y,tile+1,tile+1)}else{ctx.fillStyle=noise(r,c)>.5?"#102114":"#0c1a11";ctx.fillRect(x,y,tile+1,tile+1)}}}
-function paths(){for(let r=0;r<rows;r++)for(let c=0;c<cols;c++)if(!grid[r][c]){let p=pt(r,c),rad=tile*.31;ctx.fillStyle="#8e704322";ctx.beginPath();ctx.arc(p.x,p.y,rad,0,7);ctx.fill();ctx.strokeStyle="#cab06f2b";ctx.lineWidth=1;ctx.beginPath();ctx.arc(p.x,p.y,rad*.72,0,7);ctx.stroke()}}
-function tree(r,c){let p=pt(r,c),s=tile*.42;ctx.fillStyle="#0006";ctx.beginPath();ctx.ellipse(p.x,p.y+s*.8,s*.7,s*.2,0,0,7);ctx.fill();ctx.fillStyle="#51351f";ctx.fillRect(p.x-s*.1,p.y,s*.2,s*.65);ctx.fillStyle="#17351e";ctx.beginPath();ctx.arc(p.x,p.y-s*.05,s*.53,0,7);ctx.fill();ctx.fillStyle="#285027";ctx.beginPath();ctx.arc(p.x-s*.24,p.y-s*.22,s*.32,0,7);ctx.fill();ctx.beginPath();ctx.arc(p.x+s*.24,p.y-s*.25,s*.3,0,7);ctx.fill()}
-function rock(r,c){let p=pt(r,c),s=tile*.24;ctx.fillStyle="#4b574d";ctx.beginPath();ctx.ellipse(p.x,p.y,s*1.2,s*.7,-.2,0,7);ctx.fill();ctx.fillStyle="#697367";ctx.beginPath();ctx.ellipse(p.x-s*.2,p.y-s*.12,s*.6,s*.27,-.2,0,7);ctx.fill()}
-function decor(){for(let r=0;r<rows;r++)for(let c=0;c<cols;c++)if(grid[r][c]&&noise(r+10,c+20)>.18){noise(r,c)>.5?tree(r,c):rock(r,c)}}
-function character(p,id){let q=pt(p.r,p.c),s=Math.max(15,tile*.34);ctx.save();ctx.translate(q.x,q.y);ctx.rotate(({up:0,right:Math.PI/2,down:Math.PI,left:-Math.PI/2}[p.dir]));ctx.fillStyle="#0008";ctx.beginPath();ctx.ellipse(0,s*.58,s*.5,s*.17,0,0,7);ctx.fill();ctx.strokeStyle="#121714";ctx.lineWidth=Math.max(2,tile*.075);ctx.lineCap="round";ctx.beginPath();ctx.moveTo(-s*.16,s*.22);ctx.lineTo(-s*.22,s*.62);ctx.moveTo(s*.16,s*.22);ctx.lineTo(s*.22,s*.62);ctx.stroke();ctx.fillStyle="#090b0a";ctx.beginPath();ctx.ellipse(-s*.24,s*.66,s*.14,s*.07,0,0,7);ctx.ellipse(s*.24,s*.66,s*.14,s*.07,0,0,7);ctx.fill();ctx.fillStyle=id==1?"#197f70":"#a83f52";ctx.beginPath();ctx.roundRect(-s*.39,-s*.07,s*.78,s*.56,s*.12);ctx.fill();ctx.strokeStyle="#fff8";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,-s*.02);ctx.lineTo(0,s*.42);ctx.stroke();ctx.strokeStyle=id==1?"#126458":"#77303d";ctx.lineWidth=Math.max(2,tile*.075);ctx.beginPath();ctx.moveTo(-s*.31,0);ctx.lineTo(-s*.5,s*.25);ctx.moveTo(s*.31,0);ctx.lineTo(s*.48,s*.17);ctx.stroke();ctx.fillStyle="#d0d5d4";ctx.roundRect(s*.41,s*.08,s*.19,s*.08,s*.03);ctx.fill();ctx.fillStyle="#b97859";ctx.fillRect(-s*.1,-s*.22,s*.2,s*.12);ctx.fillStyle="#ca8967";ctx.beginPath();ctx.ellipse(0,-s*.37,s*.23,s*.26,0,0,7);ctx.fill();ctx.fillStyle="#252824";ctx.beginPath();ctx.arc(0,-s*.48,s*.235,Math.PI,7);ctx.fill();ctx.fillStyle=id==1?"#0f5d52":"#762c3a";ctx.beginPath();ctx.roundRect(-s*.47,-s*.01,s*.13,s*.38,s*.04);ctx.fill();ctx.restore()}
-function light(p,id){let q=pt(p.r,p.c),a={up:-Math.PI/2,right:0,down:Math.PI/2,left:Math.PI}[p.dir],len=tile*3.4;ctx.save();ctx.globalAlpha=.13;let g=ctx.createRadialGradient(q.x,q.y,0,q.x+Math.cos(a)*len,q.y+Math.sin(a)*len,len);g.addColorStop(0,id==1?"#8ffff0":"#ff9aa8");g.addColorStop(1,"transparent");ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(q.x,q.y);ctx.arc(q.x,q.y,len,a-.48,a+.48);ctx.closePath();ctx.fill();ctx.restore()}
-function darkness(){ctx.save();ctx.fillStyle="#000000d4";ctx.fillRect(0,0,canvas.clientWidth,canvas.clientHeight);for(let id of [1,2]){let p=players[id],rad=(Date.now()<p.flashUntil?CFG.flashVision:CFG.vision)*tile,q=pt(p.r,p.c),g=ctx.createRadialGradient(q.x,q.y,0,q.x,q.y,rad*1.25);g.addColorStop(0,"#0000");g.addColorStop(.55,"#0002");g.addColorStop(1,"#000");ctx.globalCompositeOperation="destination-out";ctx.fillStyle=g;ctx.beginPath();ctx.arc(q.x,q.y,rad*1.25,0,7);ctx.fill()}ctx.restore()}
-function draw(){if(!canvas.clientWidth)return;ctx.clearRect(0,0,canvas.clientWidth,canvas.clientHeight);ground();paths();decor();light(players[1],1);light(players[2],2);if(preview){character(players[1],1);character(players[2],2);return}darkness();for(let id of [1,2]){let other=id==1?2:1,rad=Date.now()<players[other].flashUntil?CFG.flashVision:CFG.vision;if(Math.abs(players[id].r-players[other].r)+Math.abs(players[id].c-players[other].c)<=rad)character(players[id],id);let p=players[id],q=pt(p.r,p.c),g=ctx.createRadialGradient(q.x,q.y,0,q.x,q.y,tile*.7);g.addColorStop(0,id==1?"#35d4b055":"#ef617455");g.addColorStop(1,"transparent");ctx.fillStyle=g;ctx.beginPath();ctx.arc(q.x,q.y,tile*.7,0,7);ctx.fill()}}
-setInterval(()=>{draw();ui()},120);reset();
-</script></body></html>
+async function joinGame() {
+  const input = $("joinCode");
+  const code = (input.value||"").trim().toUpperCase();
+  if(code.length!==6){ setStatus("Enter the 6-character game code."); return; }
+
+  mode="multi"; role="p2";
+  gameCode=code;
+  scores={1:0,2:0}; round=1;
+
+  show("lobby", false);
+  show("gameArea", true);
+  show("multiPanel", true);
+  show("singlePanel", false);
+  $("roleLabel").textContent="PLAYER 2";
+  $("controls").textContent="Arrow Keys / WASD • / = Flash";
+  $("roomCode").textContent=gameCode;
+  $("p1State").textContent="Waiting…";
+  $("p2State").textContent="Connected";
+  setStatus("Connecting to Player 1…");
+
+  await joinChannel();
+  setStatus("Connected. Waiting for Player 1 to start.");
+}
+
+async function joinChannel() {
+  if(channel) await supabase.removeChannel(channel);
+
+  channel = supabase.channel("blind-path:"+gameCode, {
+    config:{broadcast:{ack:true}}
+  });
+
+  channel
+    .on("broadcast",{event:"lobby"},({payload})=>handleLobby(payload))
+    .on("broadcast",{event:"move"},({payload})=>handleMove(payload))
+    .on("broadcast",{event:"flash"},({payload})=>handleFlash(payload))
+    .on("broadcast",{event:"game"},({payload})=>handleGame(payload))
+    .on("presence",{event:"sync"},()=>updatePresence())
+    .on("presence",{event:"join"},()=>updatePresence())
+    .on("presence",{event:"leave"},()=>updatePresence());
+
+  await channel.subscribe(async status=>{
+    if(status==="SUBSCRIBED"){
+      await channel.track({role, joinedAt:Date.now()});
+      updatePresence();
+    }
+  });
+}
+
+function updatePresence(){
+  if(!channel) return;
+  const state=channel.presenceState();
+  const list=Object.values(state).flat();
+  const has1=list.some(x=>x.role==="p1");
+  const has2=list.some(x=>x.role==="p2");
+  if($("p1State")) $("p1State").textContent=has1?"Connected":"Waiting…";
+  if($("p2State")) $("p2State").textContent=has2?"Connected":"Waiting…";
+  if(mode==="multi" && role==="p1" && has2) setStatus("Player 2 connected. Press Start Game.");
+}
+
+function handleLobby(p){
+  if(p.type==="room_init"){
+    if(role==="p2"){
+      seed=p.seed;
+      round=p.round||1;
+      scores=p.scores||{1:0,2:0};
+      resetRound(seed);
+      setStatus("Player 1 is ready. Waiting for Start Game.");
+    }
+  }
+  if(p.type==="start"){
+    seed=p.seed;
+    round=p.round||1;
+    scores=p.scores||scores;
+    resetRound(seed);
+    setStatus("GO!");
+  }
+  if(p.type==="restart"){
+    seed=p.seed;
+    round=p.round;
+    scores=p.scores;
+    resetRound(seed);
+    setStatus("New round!");
+  }
+}
+
+function broadcast(event,payload){
+  if(!channel) return;
+  channel.send({type:"broadcast",event,payload});
+}
+
+function handleMove(p){
+  if(mode!=="multi" || p.id===playerId()) return;
+  const id=p.id;
+  const pl=players[id];
+  if(!pl) return;
+  if(!canMove(pl.r,pl.c,p.dir)) return;
+  pl.dir=p.dir;
+  pl.r+=DIR[p.dir][0];
+  pl.c+=DIR[p.dir][1];
+  pl.moves++;
+  checkCollision();
+}
+
+function handleFlash(p){
+  if(mode!=="multi" || p.id===playerId()) return;
+  const pl=players[p.id];
+  if(!pl || pl.flashes<=0) return;
+  pl.flashes--;
+  pl.flashUntil=Date.now()+CFG.flashDuration;
+}
+
+function handleGame(p){
+  if(p.type==="win"){
+    scores[p.winner]=(scores[p.winner]||0)+1;
+    finished=true;
+    setStatus("Player "+p.winner+" found the opponent!");
+    if(scores[p.winner]>=WIN){
+      setStatus("PLAYER "+p.winner+" WINS THE MATCH!");
+    }
+  }
+}
+
+const DIR={
+  up:[-1,0],down:[1,0],left:[0,-1],right:[0,1]
+};
+
+function playerId(){ return mode==="single"?1:(role==="p1"?1:2); }
+
+function canMove(r,c,dir){
+  const d=DIR[dir];
+  if(!d) return false;
+  const nr=r+d[0],nc=c+d[1];
+  return nr>=0&&nr<rows&&nc>=0&&nc<cols&&grid[nr][nc]===0;
+}
+
+function move(id,dir){
+  if(preview||finished||moveLocked) return;
+  const pl=players[id];
+  if(!pl||!canMove(pl.r,pl.c,dir)) return;
+
+  pl.dir=dir;
+  pl.r+=DIR[dir][0];
+  pl.c+=DIR[dir][1];
+  pl.moves++;
+
+  checkCollision();
+
+  if(mode==="multi"){
+    const now=Date.now();
+    if(now-lastBroadcastMove>=CFG.moveInterval){
+      lastBroadcastMove=now;
+      broadcast("move",{id,dir});
+    }
+  }
+}
+
+function checkCollision(){
+  if(finished) return;
+  if(players[1].r===players[2].r && players[1].c===players[2].c){
+    win(1);
+  }
+}
+
+function win(id){
+  if(finished) return;
+  finished=true;
+  scores[id]++;
+  setStatus("PLAYER "+id+" FOUND THE OPPONENT!");
+
+  if(mode==="single"){
+    stopAI();
+  }else{
+    broadcast("game",{type:"win",winner:id});
+  }
+
+  ui();
+  setTimeout(()=>{
+    if(scores[id]>=WIN){
+      setStatus("PLAYER "+id+" WINS THE MATCH!");
+      return;
+    }
+    if(mode==="single"){
+      round++;
+      resetRound(makeSeed());
+      startAI();
+      setStatus("Round "+round+" — GO!");
+    }else if(role==="p1"){
+      round++;
+      const nextSeed=makeSeed();
+      scores={...scores};
+      broadcast("lobby",{type:"restart",seed:nextSeed,round,scores});
+      resetRound(nextSeed);
+      setStatus("Round "+round+" — GO!");
+    }
+  },1200);
+}
+
+function flash(id){
+  if(preview||finished) return;
+  const pl=players[id];
+  if(!pl || pl.flashes<=0) return;
+  pl.flashes--;
+  pl.flashUntil=Date.now()+CFG.flashDuration;
+
+  if(mode==="multi") broadcast("flash",{id});
+}
+
+function startMultiGame(){
+  if(mode!=="multi" || role!=="p1") return;
+  const state=channel?.presenceState()||{};
+  const list=Object.values(state).flat();
+  if(!list.some(x=>x.role==="p2")){
+    setStatus("Player 2 is not connected yet.");
+    return;
+  }
+  seed=makeSeed();
+  round=1;
+  scores={1:0,2:0};
+  resetRound(seed);
+  broadcast("lobby",{type:"start",seed,round,scores});
+  setStatus("GO!");
+}
+
+function endMatch(){
+  finished=true;
+  stopAI();
+  setStatus("Match finished. Choose a new game.");
+}
+
+/* ---------------- AI ---------------- */
+
+function neighbors(r,c){
+  const out=[];
+  for(const [name,[dr,dc]] of Object.entries(DIR)){
+    const nr=r+dr,nc=c+dc;
+    if(nr>=0&&nr<rows&&nc>=0&&nc<cols&&grid[nr][nc]===0)
+      out.push({r:nr,c:nc,dir:name});
+  }
+  return out;
+}
+
+function pathToTarget(sr,sc,tr,tc){
+  const q=[[sr,sc]], seen=new Set([sr+","+sc]), prev=new Map();
+  while(q.length){
+    const [r,c]=q.shift();
+    if(r===tr&&c===tc){
+      const path=[];
+      let k=r+","+c;
+      while(prev.has(k)){
+        const p=prev.get(k);
+        path.push({r:p.r,c:p.c,dir:p.dir});
+        k=p.from;
+      }
+      return path.reverse();
+    }
+    for(const n of neighbors(r,c)){
+      const k=n.r+","+n.c;
+      if(!seen.has(k)){
+        seen.add(k);
+        prev.set(k,{from:r+","+c,r,c,dir:n.dir});
+        q.push([n.r,n.c]);
+      }
+    }
+  }
+  return [];
+}
+
+let aiKnown=false;
+let aiLastSeen={r:1,c:1};
+let aiSearchDir=null;
+
+function aiSeesPlayer(){
+  const a=players[2],h=players[1];
+  const radius=Date.now()<h.flashUntil?CFG.flashVision:CFG.vision;
+  return Math.abs(a.r-h.r)+Math.abs(a.c-h.c)<=radius;
+}
+
+function aiStep(){
+  if(mode!=="single"||finished||preview) return;
+  const a=players[2], h=players[1];
+
+  if(aiSeesPlayer()){
+    aiKnown=true;
+    aiLastSeen={r:h.r,c:h.c};
+  }
+
+  let dir=null;
+
+  if(aiKnown){
+    const path=pathToTarget(a.r,a.c,aiLastSeen.r,aiLastSeen.c);
+    if(path.length) dir=path[0].dir;
+    else aiKnown=false;
+  }
+
+  if(!dir){
+    const ns=neighbors(a.r,a.c);
+    if(ns.length){
+      if(!aiSearchDir || Math.random()<0.28){
+        aiSearchDir=ns[randInt(ns.length)].dir;
+      }
+      const candidate=ns.find(x=>x.dir===aiSearchDir);
+      dir=candidate?candidate.dir:ns[randInt(ns.length)].dir;
+    }
+  }
+
+  if(dir) move(2,dir);
+
+  // Occasionally use a flash while searching.
+  if(a.flashes>0 && Math.random()<0.018) flash(2);
+}
+
+function startAI(){
+  stopAI();
+  aiKnown=false;
+  aiSearchDir=null;
+  aiTimer=setInterval(aiStep,CFG.aiInterval);
+}
+
+function stopAI(){
+  if(aiTimer){ clearInterval(aiTimer); aiTimer=null; }
+}
+
+/* ---------------- Rendering ---------------- */
+
+function resizeCanvas(){
+  const maxW=Math.min(window.innerWidth-24, 620);
+  tile=Math.max(14,Math.floor(maxW/cols));
+  canvas.width=cols*tile;
+  canvas.height=rows*tile;
+}
+
+function ground(){
+  ctx.fillStyle="#10170f";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+}
+
+function paths(){
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    if(grid[r][c]===0){
+      ctx.fillStyle=(r+c)%2?"#263522":"#293a25";
+      ctx.fillRect(c*tile,r*tile,tile,tile);
+    }
+  }
+}
+
+function decor(){
+  ctx.strokeStyle="rgba(255,255,255,.025)";
+  ctx.lineWidth=1;
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    if(grid[r][c]===1){
+      ctx.strokeRect(c*tile+.5,r*tile+.5,tile-1,tile-1);
+    }
+  }
+}
+
+function character(id){
+  const p=players[id];
+  const x=p.c*tile+tile/2,y=p.r*tile+tile/2;
+  ctx.save();
+  ctx.translate(x,y);
+  ctx.fillStyle=id===1?"#60a5fa":"#f97316";
+  ctx.beginPath();
+  ctx.arc(0,0,tile*.31,0,Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle="#0b0f0b";
+  ctx.beginPath();
+  ctx.arc(-tile*.1,-tile*.06,tile*.05,0,Math.PI*2);
+  ctx.arc(tile*.1,-tile*.06,tile*.05,0,Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function visibleTo(id,r,c){
+  const p=players[id];
+  const radius=Date.now()<p.flashUntil?CFG.flashVision:CFG.vision;
+  return Math.abs(p.r-r)+Math.abs(p.c-c)<=radius;
+}
+
+function darkness(){
+  ctx.save();
+  ctx.fillStyle="rgba(0,0,0,.86)";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // Clear vision around the local player. In single-player this is P1;
+  // in multiplayer each device sees its own player.
+  const local=players[playerId()];
+  const radius=Date.now()<local.flashUntil?CFG.flashVision:CFG.vision;
+  const x=local.c*tile+tile/2,y=local.r*tile+tile/2;
+  const g=ctx.createRadialGradient(x,y,tile*.4,x,y,(radius+1)*tile);
+  g.addColorStop(0,"rgba(0,0,0,0)");
+  g.addColorStop(1,"rgba(0,0,0,.9)");
+  ctx.globalCompositeOperation="destination-out";
+  ctx.fillStyle=g;
+  ctx.beginPath();
+  ctx.arc(x,y,(radius+1)*tile,0,Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function draw(){
+  resizeCanvas();
+  ground(); paths(); decor();
+
+  if(preview){
+    character(1); character(2);
+    ctx.fillStyle="rgba(0,0,0,.25)";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    return;
+  }
+
+  darkness();
+
+  const local=playerId();
+  character(local);
+
+  // Show opponent only when inside the local player's vision/flash range.
+  const other=local===1?2:1;
+  if(visibleTo(local,players[other].r,players[other].c)) character(other);
+
+  if(Date.now()<players[local].flashUntil){
+    const p=players[local];
+    ctx.strokeStyle="rgba(255,245,180,.55)";
+    ctx.lineWidth=3;
+    ctx.beginPath();
+    ctx.arc(p.c*tile+tile/2,p.r*tile+tile/2,CFG.flashVision*tile,0,Math.PI*2);
+    ctx.stroke();
+  }
+}
+
+function ui(){
+  $("score1").textContent=scores[1];
+  $("score2").textContent=scores[2];
+  $("round").textContent="Round "+round;
+  const id=playerId();
+  $("flashCount").textContent=players[id]?.flashes??0;
+}
+
+document.addEventListener("keydown",e=>{
+  const key=e.key.toLowerCase();
+  const id=playerId();
+
+  const map={
+    w:"up",arrowup:"up",
+    s:"down",arrowdown:"down",
+    a:"left",arrowleft:"left",
+    d:"right",arrowright:"right"
+  };
+
+  if(map[key]){
+    e.preventDefault();
+    move(id,map[key]);
+  }
+
+  if((id===1 && key==="q") || (id===2 && key==="/")){
+    e.preventDefault();
+    flash(id);
+  }
+});
+
+$("singleBtn")?.addEventListener("click",beginSingle);
+$("createBtn")?.addEventListener("click",createGame);
+$("joinBtn")?.addEventListener("click",joinGame);
+$("startBtn")?.addEventListener("click",startMultiGame);
+$("backBtn")?.addEventListener("click",openLobby);
+
+window.addEventListener("resize",resizeCanvas);
+
+openLobby();
+setInterval(()=>{draw();ui();},120);
+</script>
+</body>
+</html>
