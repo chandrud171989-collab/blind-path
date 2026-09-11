@@ -28,8 +28,25 @@ body{display:flex;justify-content:center;padding:14px 10px 28px}.app{width:100%;
 </div><p class="help">Find the other player before they find you. The hidden grid controls movement; you only see a natural forest path.</p></section></main>
 <div class="overlay" id="overlay"><div class="modal"><h2 id="resultTitle"></h2><div class="stars">★</div><p class="details" id="resultDetails"></p><button class="primary" id="nextBtn">Next Round</button></div></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.0"></script>
 <script>
 "use strict";
+
+const SUPABASE_URL = "https://daiykupnjfbcsycimxmz.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_DsXWL1_SIpxoC0yA2MNN1w_70D7pRQI";
+
+const supabaseClient = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY
+);
+const testChannel = supabaseClient
+  .channel("blind-path-test")
+  .on("broadcast", { event: "test" }, ({ payload }) => {
+    console.log("Blind Path Realtime received:", payload);
+  })
+  .subscribe((status) => {
+    console.log("Blind Path Realtime:", status);
+  });
 const canvas=document.getElementById("game"),ctx=canvas.getContext("2d");
 const msg=document.getElementById("message"),roundText=document.getElementById("roundText"),s1=document.getElementById("score1"),s2=document.getElementById("score2"),badge=document.getElementById("stateBadge"),fh=document.getElementById("flashHud"),f1=document.getElementById("f1"),f2=document.getElementById("f2"),overlay=document.getElementById("overlay"),title=document.getElementById("resultTitle"),details=document.getElementById("resultDetails"),next=document.getElementById("nextBtn");
 const CFG={preview:3500,vision:2,flashVision:4,flashDuration:1300,flashes:3},WIN=3,MAX=5;
