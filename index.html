@@ -217,7 +217,7 @@ canvas{
 <div id="start">
   <div class="card">
     <h1>🌲 Blind Path</h1>
-    <p>Find your way through the forest maze.</p>
+    <p>Find the hidden opponent in the forest. Get a clear line of sight to find them.</p>
     <p>Use <b>WASD</b>, arrow keys, or the controls on mobile.</p>
     <button id="begin" type="button">Enter the Forest</button>
   </div>
@@ -227,9 +227,9 @@ canvas{
   <div class="hudbar">
     <div class="hudbox">
       <div class="title">🌲 BLIND PATH</div>
-      <div id="status">Find the exit</div>
+      <div id="status">Find the opponent</div>
     </div>
-    <div class="hudbox" id="distance">0 m</div>
+    <div class="hudbox"><div id="distance">Opponent: ?</div><div id="visibility" style="font-size:11px;color:#b9c8bc;margin-top:2px">Hidden</div></div>
   </div>
 </div>
 
@@ -459,7 +459,7 @@ function init(){
   updateCamera(1);
 
   status.textContent =
-    "Find the exit";
+    "Find the opponent";
 
   requestAnimationFrame(loop);
 }
@@ -1548,6 +1548,89 @@ function createPlayer(){
    COLLISION
 ========================================================= */
 
+
+/* =========================================================
+   HIDER / COMPUTER
+========================================================= */
+
+function createHider(){
+  hider=new THREE.Group();
+  const candidates=[];
+  for(let r=1;r<ROWS-1;r++) for(let c=1;c<COLS-1;c++){
+    if(maze[r][c]!==0) continue;
+    const ds=Math.hypot(r-startCell.r,c-startCell.c);
+    const dg=Math.hypot(r-goalCell.r,c-goalCell.c);
+    if(ds>18 && dg>8) candidates.push({r,c});
+  }
+  hiderCell=candidates.length?candidates[Math.floor(rnd()*candidates.length)]:{r:Math.floor(ROWS/2),c:Math.floor(COLS/2)};
+  hider.position.set(cx(hiderCell.c),0,cz(hiderCell.r));
+
+  const skin=new THREE.MeshStandardMaterial({color:0xb97859,roughness:.85});
+  const shirt=new THREE.MeshStandardMaterial({color:0x9b3d47,roughness:.85});
+  const pants=new THREE.MeshStandardMaterial({color:0x20262d,roughness:.95});
+  const hair=new THREE.MeshStandardMaterial({color:0x171311,roughness:1});
+  const body=new THREE.Mesh(new THREE.CapsuleGeometry(.28,.62,6,10),shirt); body.position.y=1.05; body.castShadow=true; hider.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(.24,16,12),skin); head.position.y=1.82; head.castShadow=true; hider.add(head);
+  const ht=new THREE.Mesh(new THREE.SphereGeometry(.255,14,8),hair); ht.position.y=1.94; ht.scale.y=.55; ht.castShadow=true; hider.add(ht);
+  for(const side of[-1,1]){
+    const arm=new THREE.Mesh(new THREE.CapsuleGeometry(.075,.48,5,8),shirt); arm.position.set(side*.36,1.07,0); arm.rotation.z=side*.16; arm.castShadow=true; hider.add(arm);
+    const leg=new THREE.Mesh(new THREE.CapsuleGeometry(.09,.5,5,8),pants); leg.position.set(side*.12,.45,0); leg.castShadow=true; hider.add(leg);
+  }
+  const marker=new THREE.Mesh(new THREE.SphereGeometry(.07,10,8),new THREE.MeshBasicMaterial({color:0xff5d5d})); marker.position.y=2.18; hider.add(marker);
+  hider.visible=false; scene.add(hider); chooseHiderMove(true);
+}
+
+function cellFromWorld(x,z){return{r:Math.round(z/CELL+(ROWS-1)/2),c:Math.round(x/CELL+(COLS-1)/2)};}
+
+function clearLineOfSight(ax,az,bx,bz){
+  const dx=bx-ax,dz=bz-az,dist=Math.hypot(dx,dz);
+  if(dist>19) return false;
+  const steps=Math.ceil(dist/.22);
+  for(let i=1;i<steps;i++){
+    const t=i/steps,p=cellFromWorld(ax+dx*t,az+dz*t);
+    if(p.r<0||p.r>=ROWS||p.c<0||p.c>=COLS||maze[p.r][p.c]===1) return false;
+  }
+  return true;
+}
+
+function chooseHiderMove(initial=false){
+  if(!hider||gameOver) return;
+  const base=cellFromWorld(hider.position.x,hider.position.z),dirs=[[0,1],[0,-1],[1,0],[-1,0]],options=[];
+  for(const d of dirs){const r=base.r+d[0],c=base.c+d[1];if(r>0&&r<ROWS-1&&c>0&&c<COLS-1&&maze[r][c]===0) options.push({r,c});}
+  if(!options.length) return;
+  const hc=cellFromWorld(player.position.x,player.position.z),seen=clearLineOfSight(player.position.x,player.position.z,hider.position.x,hider.position.z);
+  let best=options[Math.floor(rnd()*options.length)];
+  if(seen||Math.hypot(hc.r-base.r,hc.c-base.c)<6){
+    let bs=-Infinity;
+    for(const o of options){const away=Math.hypot(o.r-hc.r,o.c-hc.c),edge=(o.r===1||o.r===ROWS-2||o.c===1||o.c===COLS-2)?-1.2:0,score=away*2.5+edge+rnd()*2.2;if(score>bs){bs=score;best=o;}}
+  }
+  hiderTarget={x:cx(best.c),z:cz(best.r)}; hiderCell=best; hiderMoveTimer=initial?0:1.1+rnd()*1.4;
+}
+
+function updateHider(dt){
+  if(!hider||gameOver||hiderFound) return;
+  hiderMoveTimer-=dt;
+  if(!hiderTarget||hiderMoveTimer<=0) chooseHiderMove();
+  if(!hiderTarget) return;
+  const dx=hiderTarget.x-hider.position.x,dz=hiderTarget.z-hider.position.z,d=Math.hypot(dx,dz);
+  if(d<.08){hider.position.x=hiderTarget.x;hider.position.z=hiderTarget.z;chooseHiderMove();return;}
+  const speed=2.35; hider.position.x+=dx/d*speed*dt; hider.position.z+=dz/d*speed*dt;
+  const target=Math.atan2(dx,dz); let diff=target-hider.rotation.y; while(diff>Math.PI)diff-=Math.PI*2; while(diff<-Math.PI)diff+=Math.PI*2; hider.rotation.y+=diff*Math.min(1,dt*8);
+}
+
+function updateHiderVisibility(){
+  if(!player||!hider||hiderFound) return;
+  const d=Math.hypot(hider.position.x-player.position.x,hider.position.z-player.position.z);
+  hiderVisible=clearLineOfSight(player.position.x,player.position.z,hider.position.x,hider.position.z);
+  hider.visible=hiderVisible;
+  if(hiderVisible){
+    distanceEl.textContent='Opponent: '+Math.max(1,Math.round(d/2))+' m';
+    visibility.textContent='👁️ VISIBLE'; visibility.style.color='#f4d66d';
+    status.textContent=d<5?'⚠️ Opponent nearby!':'You have a clear view — find them!';
+    if(d<2){hiderFound=true;gameOver=true;hider.visible=true;status.textContent='🎯 Opponent found!';visibility.textContent='FOUND';}
+  }else{distanceEl.textContent='Opponent: ?';visibility.textContent='Hidden';visibility.style.color='#b9c8bc';status.textContent='Find the opponent';}
+}
+
 function openCell(x,z){
 
   const margin = .38;
@@ -1607,7 +1690,7 @@ function openCell(x,z){
 
 function updatePlayer(dt){
 
-  if(!player)
+  if(!player || gameOver)
     return;
 
 
@@ -1705,34 +1788,8 @@ function updatePlayer(dt){
 ========================================================= */
 
 function checkGoal(){
-
-  if(!player || !goalObject)
-    return;
-
-
-  const d =
-    Math.hypot(
-      player.position.x -
-      goalObject.position.x,
-
-      player.position.z -
-      goalObject.position.z
-    );
-
-
-  distanceEl.textContent =
-    Math.round(d/2) + " m";
-
-
-  if(d < 1.2){
-
-    status.textContent =
-      "🎉 You found the exit!";
-
-  }
-
+  updateHiderVisibility();
 }
-
 
 /* =========================================================
    CAMERA
@@ -2014,6 +2071,8 @@ function loop(){
 
 
   updatePlayer(dt);
+  updateHider(dt);
+  updateHiderVisibility();
 
   updateCamera(dt);
 
