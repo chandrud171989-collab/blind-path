@@ -33,6 +33,8 @@ canvas{display:block;width:100%;max-width:620px;height:auto;margin:auto;border-r
 .flash{width:190px;background:#92762a}
 .small{font-size:12px;color:#95a58f;text-align:center}
 #message{min-height:22px;text-align:center;font-weight:800;color:#d4e8cd}
+#countdown{text-align:center;font-size:34px;font-weight:900;min-height:42px;margin:4px 0;color:#e8f5d9}
+.flash{box-shadow:0 0 0 1px rgba(255,235,130,.18) inset}
 </style>
 </head>
 <body>
@@ -87,6 +89,7 @@ canvas{display:block;width:100%;max-width:620px;height:auto;margin:auto;border-r
     </div>
 
     <div id="message"></div>
+    <div id="countdown" class="hidden"></div>
     <canvas id="game" width="300" height="300"></canvas>
 
     <div class="controls">
@@ -96,7 +99,7 @@ canvas{display:block;width:100%;max-width:620px;height:auto;margin:auto;border-r
         <button type="button" data-d="left">◀</button><button type="button" data-d="down">▼</button><button type="button" data-d="right">▶</button>
       </div>
       <button id="flashBtn" class="flash" type="button">⚡ Flash (<span id="myFlash">3</span>)</button>
-      <p class="small">Keyboard: WASD / Arrow Keys · Flash: Q for P1, / for P2</p>
+      <p class="small">Find the opponent to score. First to 3 rounds wins.<br>Keyboard: WASD / Arrow Keys · Flash: Q for P1, / for P2</p>
     </div>
   </section>
 </div>
@@ -110,6 +113,7 @@ const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const CFG={preview:3500,vision:2,flashVision:4,flashDuration:1300,flashes:3,aiInterval:520};
 const WIN=3, rows=15, cols=15;
 let mode=null,role=null,code="",seed=0,round=1,scores={1:0,2:0};
+let currentMover=0;
 let grid=[],preview=true,finished=false,channel=null,aiTimer=null;
 let players={1:{r:1,c:1,dir:"down",flashes:3,flashUntil:0},2:{r:13,c:13,dir:"up",flashes:3,flashUntil:0}};
 const DIR={up:[-1,0],down:[1,0],left:[0,-1],right:[0,1]};
@@ -142,8 +146,20 @@ function newRound(s){
   seed=s;buildMaze(seed);
   players={1:{r:1,c:1,dir:"down",flashes:3,flashUntil:0},2:{r:13,c:13,dir:"up",flashes:3,flashUntil:0}};
   preview=true;finished=false;
-  setTimeout(()=>preview=false,CFG.preview);
-  draw();
+  $("countdown").classList.remove("hidden");
+  let left=Math.ceil(CFG.preview/1000);
+  $("countdown").textContent="MEMORIZE: "+left;
+  const timer=setInterval(()=>{
+    left--;
+    if(left>0) $("countdown").textContent="MEMORIZE: "+left;
+    else{
+      clearInterval(timer);
+      preview=false;
+      $("countdown").textContent="GO!";
+      setTimeout(()=>$("countdown").classList.add("hidden"),700);
+    }
+  },1000);
+  draw();ui();
 }
 function canMove(p,d){
   const q=DIR[d],nr=p.r+q[0],nc=p.c+q[1];
@@ -153,16 +169,20 @@ function move(id,d,broadcast=true){
   if(preview||finished)return;
   const p=players[id];if(!canMove(p,d))return;
   p.dir=d;p.r+=DIR[d][0];p.c+=DIR[d][1];
+  currentMover=id;
   collision();
   if(mode==="multi"&&broadcast)send("move",{id,d});
 }
 function collision(){
-  if(players[1].r===players[2].r&&players[1].c===players[2].c)win(1);
+  if(players[1].r===players[2].r&&players[1].c===players[2].c){
+    win(currentMover || localId());
+  }
 }
 function flash(id,broadcast=true){
   if(preview||finished)return;
   const p=players[id];if(p.flashes<=0)return;
   p.flashes--;p.flashUntil=Date.now()+CFG.flashDuration;
+  status("FLASH! Vision expanded temporarily.");
   if(mode==="multi"&&broadcast)send("flash",{id});
 }
 function win(id){
@@ -292,7 +312,15 @@ function draw(){
   const me=players[localId()],rad=Date.now()<me.flashUntil?CFG.flashVision:CFG.vision,cx=me.c*tile+tile/2,cy=me.r*tile+tile/2;
   x.globalCompositeOperation="destination-out";const g=x.createRadialGradient(cx,cy,tile*.35,cx,cy,(rad+1)*tile);g.addColorStop(0,"rgba(0,0,0,1)");g.addColorStop(1,"rgba(0,0,0,0)");x.fillStyle=g;x.beginPath();x.arc(cx,cy,(rad+1)*tile,0,Math.PI*2);x.fill();x.globalCompositeOperation="source-over";
   drawP(x,localId(),tile);
-  const other=localId()===1?2:1,op=players[other];if(Math.abs(me.r-op.r)+Math.abs(me.c-op.c)<=rad)drawP(x,other,tile)
+  const other=localId()===1?2:1,op=players[other];
+  if(Math.abs(me.r-op.r)+Math.abs(me.c-op.c)<=rad)drawP(x,other,tile);
+  if(Date.now()<me.flashUntil){
+    x.strokeStyle="rgba(255,235,130,.65)";
+    x.lineWidth=Math.max(2,tile*.10);
+    x.beginPath();
+    x.arc(cx,cy,rad*tile,tile*.02,Math.PI*2);
+    x.stroke();
+  }
 }
 function drawP(x,id,t){
   const p=players[id],cx=p.c*t+t/2,cy=p.r*t+t/2;x.fillStyle=id===1?"#60a5fa":"#f97316";x.beginPath();x.arc(cx,cy,t*.3,0,Math.PI*2);x.fill()
