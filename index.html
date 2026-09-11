@@ -58,6 +58,8 @@ button{
 <button id="flash" type="button">🔦 Flash</button>
 <div id="hint">WASD / Arrow Keys · Mouse to look</div>
 
+<script src="js/three.min.js"></script>
+
 <script>
 (function(){
 "use strict";
@@ -76,22 +78,28 @@ let yaw=0,pitch=0;
 const keys={};
 
 begin.addEventListener("click", function(e){
+
  e.preventDefault();
  e.stopPropagation();
- started=true;
- start.classList.add("hidden");
- hud.style.display="block";
- flashButton.style.display="block";
- hint.style.display="block";
 
- if(typeof THREE==="undefined"){
-   status.textContent="Loading 3D engine…";
+ if(typeof THREE === "undefined") {
+   status.textContent = "3D engine failed to load";
    return;
  }
- status.textContent="Starting forest…";
- init();
-}, {passive:false});
 
+ started = true;
+
+ start.classList.add("hidden");
+
+ hud.style.display = "block";
+ flashButton.style.display = "block";
+ hint.style.display = "block";
+
+ status.textContent = "Starting forest…";
+
+ init();
+
+}, {passive:false});
 begin.addEventListener("touchend", function(e){
  e.preventDefault();
  if(!started) begin.click();
@@ -249,11 +257,8 @@ function loop(){
  renderer.render(scene,camera);
 }
 
-const three=document.createElement("script");
-three.src="https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.min.js";
 
 })();
 </script>
-<script src="js/three.min.js"></script>
 </body>
 </html>
