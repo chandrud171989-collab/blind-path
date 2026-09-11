@@ -1,366 +1,271 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Blind Path — Hide & Seek</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Blind Path 3D</title>
 <style>
 *{box-sizing:border-box}
-body{margin:0;background:#0b100b;color:#eef5e8;font-family:Arial,sans-serif;min-height:100vh}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050806;font-family:Arial,sans-serif;color:#fff}
+#game{position:fixed;inset:0}
+canvas{display:block;width:100%;height:100%}
+#start{
+ position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
+ background:linear-gradient(#071009cc,#020403ee);padding:20px
+}
+.card{
+ width:min(430px,94vw);padding:28px 22px;border:1px solid #49634d;border-radius:22px;
+ background:#101812;box-shadow:0 20px 70px #000c;text-align:center
+}
+h1{margin:0 0 8px;font-size:32px}
+p{color:#b8c5ba;line-height:1.5}
+button{
+ border:0;border-radius:14px;padding:15px 24px;font-size:17px;font-weight:800;
+ cursor:pointer;touch-action:manipulation
+}
+#begin{background:#62d68a;color:#07100a;width:100%;margin-top:12px}
+#flash{
+ position:fixed;right:18px;bottom:22px;z-index:15;display:none;
+ background:#f4d35e;color:#16120a;box-shadow:0 8px 25px #0008
+}
+#hud{
+ position:fixed;top:14px;left:14px;right:14px;z-index:10;display:none;
+ pointer-events:none
+}
+.pill{display:inline-block;background:#071009bb;border:1px solid #405444;border-radius:12px;padding:8px 11px}
+#status{font-size:13px;color:#dce7dd}
+#hint{
+ position:fixed;left:50%;bottom:20px;transform:translateX(-50%);
+ z-index:10;color:#d5e0d6;background:#071009aa;padding:8px 12px;border-radius:10px;
+ font-size:12px;pointer-events:none;display:none;white-space:nowrap
+}
 .hidden{display:none!important}
-.app{max-width:760px;margin:auto;padding:18px 14px 30px}
-h1{text-align:center;margin:4px 0 4px;font-size:28px}
-.sub{text-align:center;color:#9baa94;margin:0 0 18px}
-.card{background:#151d15;border:1px solid #2d3a2b;border-radius:18px;padding:18px;margin:12px 0}
-button{border:0;border-radius:13px;padding:13px 16px;background:#3b7d4a;color:white;font-weight:800;font-size:15px;cursor:pointer}
-button:active{transform:scale(.98)}
-button.secondary{background:#293329}
-button.orange{background:#a85d28}
-input{width:100%;padding:13px;border-radius:12px;border:1px solid #40503c;background:#0d140d;color:#fff;font-size:18px;text-align:center;letter-spacing:4px}
-.actions{display:grid;gap:10px}
-.row{display:flex;gap:10px;align-items:center}
-.row>*{flex:1}
-.status{text-align:center;min-height:24px;color:#b8d8b3;margin:10px 0;font-weight:700}
-.room{font-size:30px;letter-spacing:6px;text-align:center;font-weight:900;margin:8px}
-.states{display:flex;gap:8px}
-.state{flex:1;text-align:center;background:#0d140d;border-radius:12px;padding:10px;font-size:13px}
-.hud{display:flex;justify-content:space-between;align-items:center;margin:8px 0 10px}
-.score{font-size:18px;font-weight:900}
-canvas{display:block;width:100%;max-width:620px;height:auto;margin:auto;border-radius:14px;border:1px solid #354331;background:#10170f;image-rendering:auto}
-.controls{margin-top:12px;text-align:center}
-.dpad{width:190px;margin:10px auto;display:grid;grid-template-columns:repeat(3,56px);grid-template-rows:repeat(3,50px);gap:5px;justify-content:center}
-.dpad button{padding:0;font-size:20px}
-.flash{width:190px;background:#92762a}
-.small{font-size:12px;color:#95a58f;text-align:center}
-#message{min-height:22px;text-align:center;font-weight:800;color:#d4e8cd}
-#countdown{text-align:center;font-size:34px;font-weight:900;min-height:42px;margin:4px 0;color:#e8f5d9}
-.flash{box-shadow:0 0 0 1px rgba(255,235,130,.18) inset}
-/* =========================================
-   COMPACT MAIN MENU
-   ========================================= */
-
-#lobby {
-    width: min(440px, 100%);
-    max-width: 440px;
-    margin: 20px auto 0;
-    padding: 12px;
-    border-radius: 18px;
-}
-
-#homeActions {
-    display: grid;
-    gap: 9px;
-}
-
-#homeActions button {
-    width: 100%;
-    height: 52px;
-    min-height: 52px;
-    padding: 8px 14px;
-    border-radius: 13px;
-    font-size: 15px;
-}
-
-#lobbyStatus {
-    margin-top: 8px;
-}
-
-#singlePanel,
-#joinBox {
-    padding: 2px;
-}
 </style>
 </head>
 <body>
-<div class="app">
+<div id="game"></div>
+
+<div id="start">
+ <div class="card">
   <h1>🌲 Blind Path</h1>
-  <p class="sub">Hide & Seek in the dark</p>
-
-  <section id="lobby" class="card">
-    <div id="homeActions" class="actions">
-      <button id="singleBtn" type="button">🎮 Play vs Computer</button>
-      <button id="createBtn" type="button">👥 Create Game</button>
-      <button id="showJoinBtn" type="button" class="secondary">🔗 Join Game</button>
-    </div>
-
-    <div id="singlePanel" class="hidden">
-      <h2>Play vs Computer</h2>
-      <p>The computer controls Player 2. You control Player 1.</p>
-      <div class="actions">
-        <button id="singleStartBtn" type="button">▶ Start Game</button>
-        <button id="singleBackBtn" type="button" class="secondary">← Back</button>
-      </div>
-    </div>
-
-    <div id="joinBox" class="hidden">
-      <h2>Join Game</h2>
-      <input id="codeInput" maxlength="6" placeholder="GAME CODE" autocomplete="off">
-      <div class="row" style="margin-top:10px">
-        <button id="joinBtn" type="button">Join</button>
-        <button id="joinBackBtn" type="button" class="secondary">Back</button>
-      </div>
-    </div>
-
-    <div id="lobbyStatus" class="status"></div>
-  </section>
-
-  <section id="gameApp" class="hidden">
-    <div class="hud">
-      <div class="score">P1: <span id="score1">0</span></div>
-      <div id="roundText">Round 1 · First to 3</div>
-      <div class="score">P2: <span id="score2">0</span></div>
-    </div>
-
-    <div class="card" id="roomPanel" style="text-align:center">
-      <div id="roleBadge">PLAYER 1</div>
-      <div class="room" id="roomCode"></div>
-      <div class="states">
-        <div class="state">P1<br><b id="p1State">—</b></div>
-        <div class="state">P2<br><b id="p2State">—</b></div>
-      </div>
-      <button id="startBtn" class="hidden" type="button" style="margin-top:12px">▶ Start Game</button>
-      <button id="leaveBtn" class="secondary" type="button" style="margin-top:10px">Leave Game</button>
-    </div>
-
-    <div id="message"></div>
-    <div id="countdown" class="hidden"></div>
-    <canvas id="game" width="300" height="300"></canvas>
-
-    <div class="controls">
-      <div id="controlTitle">PLAYER 1</div>
-      <div class="dpad">
-        <span></span><button type="button" data-d="up">▲</button><span></span>
-        <button type="button" data-d="left">◀</button><button type="button" data-d="down">▼</button><button type="button" data-d="right">▶</button>
-      </div>
-      <button id="flashBtn" class="flash" type="button">⚡ Flash (<span id="myFlash">3</span>)</button>
-      <p class="small">Find the opponent to score. First to 3 rounds wins.<br>Keyboard: WASD / Arrow Keys · Flash: Q for P1, / for P2</p>
-    </div>
-  </section>
+  <p>Enter the forest and find your way through the darkness.</p>
+  <p>Use <b>WASD</b> or the arrow keys to move. On desktop, move the mouse to look around.</p>
+  <button id="begin" type="button">Enter the Forest</button>
+ </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.0"></script>
+<div id="hud"><span class="pill" id="status">Loading 3D forest…</span></div>
+<button id="flash" type="button">🔦 Flash</button>
+<div id="hint">WASD / Arrow Keys · Mouse to look</div>
+
 <script>
-const SUPABASE_URL="https://daiykupnjfbcsycimxmz.supabase.co";
-const SUPABASE_KEY="sb_publishable_DsXWL1_SIpxoC0yA2MNN1w_70D7pRQI";
-const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+(function(){
+"use strict";
 
-const CFG={preview:3500,vision:2,flashVision:4,flashDuration:1300,flashes:3,aiInterval:520};
-const WIN=3, rows=15, cols=15;
-let mode=null,role=null,code="",seed=0,round=1,scores={1:0,2:0};
-let currentMover=0;
-let grid=[],preview=true,finished=false,channel=null,aiTimer=null;
-let players={1:{r:1,c:1,dir:"down",flashes:3,flashUntil:0},2:{r:13,c:13,dir:"up",flashes:3,flashUntil:0}};
-const DIR={up:[-1,0],down:[1,0],left:[0,-1],right:[0,1]};
-const $=id=>document.getElementById(id);
+const start=document.getElementById("start");
+const begin=document.getElementById("begin");
+const game=document.getElementById("game");
+const flashButton=document.getElementById("flash");
+const hud=document.getElementById("hud");
+const status=document.getElementById("status");
+const hint=document.getElementById("hint");
 
-function status(t){$("lobbyStatus").textContent=t||"";$("message").textContent=t||""}
-function localId(){return mode==="single"?1:(role==="p1"?1:2)}
+let started=false;
+let scene,camera,renderer,clock;
+let yaw=0,pitch=0;
+const keys={};
 
-function rng(s){
-  let x=(s>>>0)||1;
-  return ()=>{x^=x<<13;x>>>=0;x^=x>>>17;x>>>=0;x^=x<<5;x>>>=0;return(x>>>0)/4294967296}
-}
-function buildMaze(s){
-  const r=rng(s);
-  grid=Array.from({length:rows},()=>Array(cols).fill(1));
-  function carve(y,x){
-    grid[y][x]=0;
-    const ds=[[0,2],[0,-2],[2,0],[-2,0]];
-    for(let i=ds.length-1;i>0;i--){let j=Math.floor(r()*(i+1));[ds[i],ds[j]]=[ds[j],ds[i]]}
-    for(const [dy,dx] of ds){
-      const ny=y+dy,nx=x+dx;
-      if(ny>0&&ny<rows-1&&nx>0&&nx<cols-1&&grid[ny][nx]){
-        grid[y+dy/2][x+dx/2]=0;carve(ny,nx)
-      }
-    }
-  }
-  carve(1,1);grid[1][1]=0;grid[13][13]=0;
-}
-function newRound(s){
-  seed=s;buildMaze(seed);
-  players={1:{r:1,c:1,dir:"down",flashes:3,flashUntil:0},2:{r:13,c:13,dir:"up",flashes:3,flashUntil:0}};
-  preview=true;finished=false;
-  $("countdown").classList.remove("hidden");
-  let left=Math.ceil(CFG.preview/1000);
-  $("countdown").textContent="MEMORIZE: "+left;
-  const timer=setInterval(()=>{
-    left--;
-    if(left>0) $("countdown").textContent="MEMORIZE: "+left;
-    else{
-      clearInterval(timer);
-      preview=false;
-      $("countdown").textContent="GO!";
-      setTimeout(()=>$("countdown").classList.add("hidden"),700);
-    }
-  },1000);
-  draw();ui();
-}
-function canMove(p,d){
-  const q=DIR[d],nr=p.r+q[0],nc=p.c+q[1];
-  return nr>=0&&nr<rows&&nc>=0&&nc<cols&&grid[nr][nc]===0
-}
-function move(id,d,broadcast=true){
-  if(preview||finished)return;
-  const p=players[id];if(!canMove(p,d))return;
-  p.dir=d;p.r+=DIR[d][0];p.c+=DIR[d][1];
-  currentMover=id;
-  collision();
-  if(mode==="multi"&&broadcast)send("move",{id,d});
-}
-function collision(){
-  if(players[1].r===players[2].r&&players[1].c===players[2].c){
-    win(currentMover || localId());
-  }
-}
-function flash(id,broadcast=true){
-  if(preview||finished)return;
-  const p=players[id];if(p.flashes<=0)return;
-  p.flashes--;p.flashUntil=Date.now()+CFG.flashDuration;
-  status("FLASH! Vision expanded temporarily.");
-  if(mode==="multi"&&broadcast)send("flash",{id});
-}
-function win(id){
-  if(finished)return;
-  finished=true;scores[id]++;ui();status("PLAYER "+id+" FOUND THE OPPONENT!");
-  if(mode==="multi")send("game",{type:"win",winner:id});
-  stopAI();
-  if(scores[id]<WIN)setTimeout(()=>{
-    round++;const ns=Math.floor(Math.random()*0x7fffffff);
-    if(mode==="single"){newRound(ns);startAI();status("Round "+round+" — GO!")}
-    else if(role==="p1"){newRound(ns);send("lobby",{type:"restart",seed:ns,round,scores});status("Round "+round+" — GO!")}
-  },1200);
-  else setTimeout(()=>status("PLAYER "+id+" WINS THE MATCH!"),1200);
-}
-function send(event,payload){if(channel)channel.send({type:"broadcast",event,payload})}
+begin.addEventListener("click", function(e){
+ e.preventDefault();
+ e.stopPropagation();
+ started=true;
+ start.classList.add("hidden");
+ hud.style.display="block";
+ flashButton.style.display="block";
+ hint.style.display="block";
 
-async function connect(){
-  if(channel)await sb.removeChannel(channel);
-  channel=sb.channel("blind-path:"+code,{config:{broadcast:{ack:true}}});
-  channel.on("broadcast",{event:"lobby"},({payload})=>lobbyMsg(payload));
-  channel.on("broadcast",{event:"move"},({payload})=>{
-    if(mode==="multi"&&payload.id!==localId())move(payload.id,payload.d,false)
-  });
-  channel.on("broadcast",{event:"flash"},({payload})=>{
-    if(mode==="multi"&&payload.id!==localId())flash(payload.id,false)
-  });
-  channel.on("broadcast",{event:"game"},({payload})=>{
-    if(payload.type==="win"&&mode==="multi"){
-      if(!finished){finished=true;scores[payload.winner]++;ui();status("PLAYER "+payload.winner+" FOUND THE OPPONENT!")}
-    }
-  });
-  channel.on("presence",{event:"sync"},presence);
-  channel.on("presence",{event:"join"},presence);
-  channel.on("presence",{event:"leave"},presence);
-  await channel.subscribe(async st=>{if(st==="SUBSCRIBED"){await channel.track({role})}});
-}
-function presence(){
-  if(!channel)return;
-  const vals=Object.values(channel.presenceState()).flat();
-  const p1=vals.some(x=>x.role==="p1"),p2=vals.some(x=>x.role==="p2");
-  $("p1State").textContent=p1?"Connected":"Waiting…";
-  $("p2State").textContent=p2?"Connected":"Waiting…";
-  if(role==="p1"&&p2){$("startBtn").classList.remove("hidden");status("Player 2 connected. Press Start Game.")}
-}
-function lobbyMsg(p){
-  if(p.type==="room_init"&&role==="p2"){seed=p.seed;scores=p.scores;round=p.round;newRound(seed);status("Connected. Waiting for Player 1 to start.")}
-  if(p.type==="start"){seed=p.seed;scores=p.scores;round=p.round;newRound(seed);status("GO!")}
-  if(p.type==="restart"){seed=p.seed;scores=p.scores;round=p.round;newRound(seed);status("Round "+round+" — GO!")}
+ if(typeof THREE==="undefined"){
+   status.textContent="Loading 3D engine…";
+   return;
+ }
+ status.textContent="Starting forest…";
+ init();
+}, {passive:false});
+
+begin.addEventListener("touchend", function(e){
+ e.preventDefault();
+ if(!started) begin.click();
+}, {passive:false});
+
+function init(){
+ if(renderer) return;
+ if(typeof THREE==="undefined"){
+   status.textContent="3D engine is still loading…";
+   return;
+ }
+
+ scene=new THREE.Scene();
+ scene.background=new THREE.Color(0x020504);
+ scene.fog=new THREE.FogExp2(0x07100a,0.055);
+
+ camera=new THREE.PerspectiveCamera(70,innerWidth/innerHeight,0.1,150);
+ camera.position.set(0,1.65,8);
+
+ renderer=new THREE.WebGLRenderer({antialias:true});
+ renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+ renderer.setSize(innerWidth,innerHeight);
+ renderer.shadowMap.enabled=true;
+ game.appendChild(renderer.domElement);
+
+ clock=new THREE.Clock();
+
+ const hemi=new THREE.HemisphereLight(0x78927a,0x101510,1.0);
+ scene.add(hemi);
+
+ const moon=new THREE.DirectionalLight(0xb7c7ff,1.3);
+ moon.position.set(-20,30,10);
+ moon.castShadow=true;
+ scene.add(moon);
+
+ makeGround();
+ makeForest();
+
+ status.textContent="Find the path";
+ requestAnimationFrame(loop);
 }
 
-function showLobby(){
-  mode=null;role=null;stopAI();
-  if(channel){sb.removeChannel(channel);channel=null}
-  $("lobby").classList.remove("hidden");$("gameApp").classList.add("hidden");
-  $("homeActions").classList.remove("hidden");$("singlePanel").classList.add("hidden");$("joinBox").classList.add("hidden");
-  status("");
-}
-function showGame(){ $("lobby").classList.add("hidden");$("gameApp").classList.remove("hidden") }
+function makeGround(){
+ const geo=new THREE.PlaneGeometry(150,150);
+ const mat=new THREE.MeshStandardMaterial({color:0x111a12,roughness:1});
+ const ground=new THREE.Mesh(geo,mat);
+ ground.rotation.x=-Math.PI/2;
+ ground.receiveShadow=true;
+ scene.add(ground);
 
-$("singleBtn").onclick=()=>{$("homeActions").classList.add("hidden");$("singlePanel").classList.remove("hidden");status("Ready to play against the computer.")};
-$("singleBackBtn").onclick=showLobby;
-$("singleStartBtn").onclick=()=>{
-  mode="single";role="p1";round=1;scores={1:0,2:0};
-  showGame();$("roomPanel").classList.add("hidden");$("roleBadge").textContent="PLAYER 1 · VS COMPUTER";$("controlTitle").textContent="PLAYER 1";
-  newRound(Math.floor(Math.random()*0x7fffffff));startAI();status("Find the computer before it finds you.");ui()
+ const pathMat=new THREE.MeshStandardMaterial({color:0x473c2d,roughness:1});
+ for(let i=0;i<24;i++){
+   const z=6-i*4;
+   const x=Math.sin(i*0.75)*3.5;
+   const path=new THREE.Mesh(new THREE.PlaneGeometry(2.7,5),pathMat);
+   path.rotation.x=-Math.PI/2;
+   path.position.set(x,0.012,z);
+   path.rotation.z=Math.sin(i*.8)*.12;
+   scene.add(path);
+ }
+}
+
+function makeTree(x,z,s){
+ const g=new THREE.Group();
+ g.position.set(x,0,z);
+ g.scale.setScalar(s);
+
+ const trunk=new THREE.Mesh(
+   new THREE.CylinderGeometry(.22,.34,3.2,8),
+   new THREE.MeshStandardMaterial({color:0x39281b,roughness:1})
+ );
+ trunk.position.y=1.6;
+ trunk.castShadow=true;
+ g.add(trunk);
+
+ for(let i=0;i<4;i++){
+   const crown=new THREE.Mesh(
+     new THREE.ConeGeometry(1.8-i*.28,2.5,8),
+     new THREE.MeshStandardMaterial({color:0x17351d,roughness:1})
+   );
+   crown.position.y=3.0+i*.75;
+   crown.castShadow=true;
+   g.add(crown);
+ }
+ scene.add(g);
+}
+
+function makeForest(){
+ for(let i=0;i<85;i++){
+   const side=Math.random()<.5?-1:1;
+   const x=side*(5+Math.random()*25);
+   const z=12-Math.random()*105;
+   makeTree(x,z,.75+Math.random()*1.2);
+ }
+}
+
+function doFlash(){
+ if(!started || !scene) return;
+ const light=new THREE.PointLight(0xfff5cf,18,24,2);
+ light.position.copy(camera.position);
+ light.position.y+=.05;
+ scene.add(light);
+ setTimeout(()=>scene.remove(light),900);
+}
+
+flashButton.addEventListener("click",function(e){
+ e.preventDefault();
+ doFlash();
+},{passive:false});
+
+window.addEventListener("keydown",e=>{
+ keys[e.key.toLowerCase()]=true;
+ if(["arrowup","arrowdown","arrowleft","arrowright"," "].includes(e.key.toLowerCase()))
+   e.preventDefault();
+});
+window.addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
+
+window.addEventListener("mousemove",e=>{
+ if(!started) return;
+ if(document.pointerLockElement===renderer?.domElement || e.buttons){
+   yaw-=e.movementX*.002;
+   pitch-=e.movementY*.002;
+   pitch=Math.max(-1.2,Math.min(1.2,pitch));
+ }
+});
+
+window.addEventListener("resize",()=>{
+ if(!camera||!renderer)return;
+ camera.aspect=innerWidth/innerHeight;
+ camera.updateProjectionMatrix();
+ renderer.setSize(innerWidth,innerHeight);
+});
+
+function loop(){
+ requestAnimationFrame(loop);
+ const dt=Math.min(clock.getDelta(),.05);
+
+ const forward=(keys.w||keys.arrowup?1:0)-(keys.s||keys.arrowdown?1:0);
+ const side=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0);
+
+ const speed=forward||side?3.2:0;
+ camera.rotation.order="YXZ";
+ camera.rotation.y=yaw;
+ camera.rotation.x=pitch;
+
+ const dir=new THREE.Vector3();
+ camera.getWorldDirection(dir);
+ dir.y=0;dir.normalize();
+
+ const right=new THREE.Vector3(dir.z,0,-dir.x);
+ camera.position.addScaledVector(dir,forward*speed*dt);
+ camera.position.addScaledVector(right,side*speed*dt);
+ camera.position.y=1.65;
+
+ renderer.render(scene,camera);
+}
+
+const three=document.createElement("script");
+three.src="https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.min.js";
+three.onload=function(){
+ status.textContent="3D engine ready";
+ if(started && !renderer){
+   status.textContent="Starting forest…";
+   init();
+ } else if(!started){
+   status.textContent="Ready — press Enter the Forest";
+ }
 };
-$("createBtn").onclick=async()=>{
-  mode="multi";role="p1";round=1;scores={1:0,2:0};code=Math.random().toString(36).slice(2,8).toUpperCase();
-  showGame();$("roomPanel").classList.remove("hidden");$("roleBadge").textContent="PLAYER 1 · HOST";$("roomCode").textContent=code;$("startBtn").classList.add("hidden");
-  $("p1State").textContent="Connecting…";$("p2State").textContent="Waiting…";status("Creating game…");
-  newRound(Math.floor(Math.random()*0x7fffffff));await connect();send("lobby",{type:"room_init",seed,scores,round});status("Share the code with Player 2.")
+three.onerror=function(){
+ status.textContent="Unable to load 3D engine. Check internet connection.";
 };
-$("showJoinBtn").onclick=()=>{$("homeActions").classList.add("hidden");$("joinBox").classList.remove("hidden");$("codeInput").focus();status("Enter the 6-character game code.")};
-$("joinBackBtn").onclick=showLobby;
-$("joinBtn").onclick=async()=>{
-  code=$("codeInput").value.trim().toUpperCase();
-  if(code.length!==6){status("Please enter a 6-character code.");return}
-  mode="multi";role="p2";round=1;scores={1:0,2:0};
-  showGame();$("roomPanel").classList.remove("hidden");$("roleBadge").textContent="PLAYER 2 · JOINED";$("roomCode").textContent=code;
-  $("startBtn").classList.add("hidden");$("p1State").textContent="Waiting…";$("p2State").textContent="Connecting…";status("Connecting…");
-  await connect();status("Connected. Waiting for Player 1 to start.")
-};
-$("startBtn").onclick=()=>{if(role!=="p1")return;seed=Math.floor(Math.random()*0x7fffffff);round=1;scores={1:0,2:0};newRound(seed);send("lobby",{type:"start",seed,round,scores});$("startBtn").classList.add("hidden");status("GO!")};
-$("leaveBtn").onclick=showLobby;
-$("flashBtn").onclick=()=>flash(localId());
+document.head.appendChild(three);
 
-document.querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>move(localId(),b.dataset.d));
-
-document.onkeydown=e=>{
-  const k=e.key.toLowerCase(),m={w:"up",arrowup:"up",s:"down",arrowdown:"down",a:"left",arrowleft:"left",d:"right",arrowright:"right"};
-  if(m[k]){e.preventDefault();move(localId(),m[k])}
-  if((localId()===1&&k==="q")||(localId()===2&&k==="/")){e.preventDefault();flash(localId())}
-};
-
-function startAI(){stopAI();aiTimer=setInterval(aiStep,CFG.aiInterval)}
-function stopAI(){if(aiTimer){clearInterval(aiTimer);aiTimer=null}}
-function ns(r,c){
-  const a=[];for(const [d,[y,x]] of Object.entries(DIR)){const Y=r+y,X=c+x;if(Y>=0&&Y<rows&&X>=0&&X<cols&&grid[Y][X]===0)a.push({r:Y,c:X,d})}return a
-}
-function bfs(sr,sc,tr,tc){
-  const q=[[sr,sc]],seen=new Set([sr+","+sc]),prev=new Map();
-  while(q.length){const [r,c]=q.shift();if(r===tr&&c===tc){const path=[];let key=r+","+c;while(prev.has(key)){const z=prev.get(key);path.push(z.d);key=z.from}return path.reverse()}
-    for(const n of ns(r,c)){const key=n.r+","+n.c;if(!seen.has(key)){seen.add(key);prev.set(key,{from:r+","+c,d:n.d});q.push([n.r,n.c])}}
-  }return[]
-}
-let known=false,last={r:1,c:1},searchDir=null;
-function aiStep(){
-  if(mode!=="single"||finished||preview)return;
-  const a=players[2],h=players[1],rad=Date.now()<h.flashUntil?CFG.flashVision:CFG.vision;
-  if(Math.abs(a.r-h.r)+Math.abs(a.c-h.c)<=rad){known=true;last={r:h.r,c:h.c}}
-  let d=null;if(known){const path=bfs(a.r,a.c,last.r,last.c);if(path.length)d=path[0];else known=false}
-  const choices=ns(a.r,a.c);if(!d&&choices.length){if(!searchDir||Math.random()<.28)searchDir=choices[Math.floor(Math.random()*choices.length)].d;d=(choices.find(x=>x.d===searchDir)||choices[0]).d}
-  if(d)move(2,d);if(a.flashes>0&&Math.random()<.02)flash(2)
-}
-
-function ui(){
-  $("score1").textContent=scores[1];$("score2").textContent=scores[2];$("roundText").textContent="Round "+round+" · First to 3";
-  $("myFlash").textContent=players[localId()]?.flashes??0
-}
-function draw(){
-  const c=$("game"),max=Math.min(window.innerWidth-28,620),tile=Math.max(14,Math.floor(max/cols));
-  c.width=cols*tile;c.height=rows*tile;const x=c.getContext("2d");
-  x.fillStyle="#10170f";x.fillRect(0,0,c.width,c.height);
-  for(let r=0;r<rows;r++)for(let col=0;col<cols;col++)if(!grid[r][col]){x.fillStyle=(r+col)%2?"#263522":"#293a25";x.fillRect(col*tile,r*tile,tile,tile)}
-  if(preview){drawP(x,1,tile);drawP(x,2,tile);return}
-  x.fillStyle="rgba(0,0,0,.86)";x.fillRect(0,0,c.width,c.height);
-  const me=players[localId()],rad=Date.now()<me.flashUntil?CFG.flashVision:CFG.vision,cx=me.c*tile+tile/2,cy=me.r*tile+tile/2;
-  x.globalCompositeOperation="destination-out";const g=x.createRadialGradient(cx,cy,tile*.35,cx,cy,(rad+1)*tile);g.addColorStop(0,"rgba(0,0,0,1)");g.addColorStop(1,"rgba(0,0,0,0)");x.fillStyle=g;x.beginPath();x.arc(cx,cy,(rad+1)*tile,0,Math.PI*2);x.fill();x.globalCompositeOperation="source-over";
-  drawP(x,localId(),tile);
-  const other=localId()===1?2:1,op=players[other];
-  if(Math.abs(me.r-op.r)+Math.abs(me.c-op.c)<=rad)drawP(x,other,tile);
-  if(Date.now()<me.flashUntil){
-    x.strokeStyle="rgba(255,235,130,.65)";
-    x.lineWidth=Math.max(2,tile*.10);
-    x.beginPath();
-    x.arc(cx,cy,rad*tile,tile*.02,Math.PI*2);
-    x.stroke();
-  }
-}
-function drawP(x,id,t){
-  const p=players[id],cx=p.c*t+t/2,cy=p.r*t+t/2;x.fillStyle=id===1?"#60a5fa":"#f97316";x.beginPath();x.arc(cx,cy,t*.3,0,Math.PI*2);x.fill()
-}
-setInterval(()=>{draw();ui()},120);
-showLobby();
+})();
 </script>
 </body>
 </html>
