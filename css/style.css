@@ -1230,3 +1230,38 @@ prefers-reduced-motion: reduce
 ```
 
 }
+
+/* =========================================
+   COMPACT MAIN MENU
+   ========================================= */
+
+#lobby {
+    width: min(440px, 100%);
+    margin: 0 auto;
+    padding: 12px;
+    border-radius: 18px;
+}
+
+#homeActions {
+    display: grid;
+    gap: 9px;
+}
+
+#homeActions button {
+    width: 100%;
+    min-height: 52px;
+    padding: 10px 14px;
+    border-radius: 13px;
+    font-size: 15px;
+}
+
+#singlePanel,
+#joinBox {
+    padding: 2px;
+}
+
+#singlePanel h2,
+#joinBox h2 {
+    margin-bottom: 10px;
+    font-size: 19px;
+}
