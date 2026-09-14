@@ -290,6 +290,14 @@ let goalCell;
 let goalObject;
 let hider=null, hiderCell=null, hiderTarget=null, hiderMoveTimer=0;
 let hiderVisible=false, hiderFound=false, gameOver=false;
+let flashActive=false;
+let flashUntil=0;
+let flashCooldownUntil=0;
+
+const FLASH_DURATION=5000;
+const FLASH_COOLDOWN=8000;
+const NORMAL_VISION=12;
+const FLASH_VISION=27;
 let potholes=[];
 let hazardMessageUntil=0;
 const visibility=$("visibility");
@@ -1696,17 +1704,40 @@ function createHider(){
 
 function cellFromWorld(x,z){return{r:Math.round(z/CELL+(ROWS-1)/2),c:Math.round(x/CELL+(COLS-1)/2)};}
 
-function clearLineOfSight(ax,az,bx,bz){
-  const dx=bx-ax,dz=bz-az,dist=Math.hypot(dx,dz);
-  if(dist>19) return false;
-  const steps=Math.ceil(dist/.22);
+function clearLineOfSight(ax,az,bx,bz,maxDistance=12){
+
+  const dx = bx - ax;
+  const dz = bz - az;
+  const dist = Math.hypot(dx,dz);
+
+  // Normal vision / Flash range
+  if(dist > maxDistance)
+    return false;
+
+  const steps = Math.ceil(dist / .18);
+
   for(let i=1;i<steps;i++){
-    const t=i/steps,p=cellFromWorld(ax+dx*t,az+dz*t);
-    if(p.r<0||p.r>=ROWS||p.c<0||p.c>=COLS||maze[p.r][p.c]===1) return false;
+
+    const t = i / steps;
+
+    const x = ax + dx * t;
+    const z = az + dz * t;
+
+    const p = cellFromWorld(x,z);
+
+    if(
+      p.r < 0 ||
+      p.r >= ROWS ||
+      p.c < 0 ||
+      p.c >= COLS ||
+      maze[p.r][p.c] === 1
+    ){
+      return false;
+    }
   }
+
   return true;
 }
-
 function chooseHiderMove(initial=false){
   if(!hider||gameOver) return;
   const base=cellFromWorld(hider.position.x,hider.position.z),dirs=[[0,1],[0,-1],[1,0],[-1,0]],options=[];
@@ -1734,22 +1765,67 @@ function updateHider(dt){
   const target=Math.atan2(dx,dz); let diff=target-hider.rotation.y; while(diff>Math.PI)diff-=Math.PI*2; while(diff<-Math.PI)diff+=Math.PI*2; hider.rotation.y+=diff*Math.min(1,dt*8);
 }
 
-function updateHiderVisibility(){
-  if(!player||!hider||hiderFound) return;
-  if(performance.now()<hazardMessageUntil){
-    status.textContent="🕳️ Pothole! Move around it";
-  }
-  const d=Math.hypot(hider.position.x-player.position.x,hider.position.z-player.position.z);
-  hiderVisible=clearLineOfSight(player.position.x,player.position.z,hider.position.x,hider.position.z);
-  hider.visible=hiderVisible;
-  if(hiderVisible){
-    distanceEl.textContent='Opponent: '+Math.max(1,Math.round(d/2))+' m';
-    visibility.textContent='👁️ VISIBLE'; visibility.style.color='#f4d66d';
-    if(performance.now()>=hazardMessageUntil) status.textContent=d<5?'⚠️ Opponent nearby!':'You have a clear view — find them!';
-    if(d<2){hiderFound=true;gameOver=true;hider.visible=true;status.textContent='🎯 Opponent found!';visibility.textContent='FOUND';}
-  }else{distanceEl.textContent='Opponent: ?';visibility.textContent='Hidden';visibility.style.color='#b9c8bc';if(performance.now()>=hazardMessageUntil) status.textContent='Find the opponent';}
-}
+function flash(){
 
+  if(!player || gameOver)
+    return;
+
+  const now = performance.now();
+
+  // Prevent Flash during cooldown
+  if(now < flashCooldownUntil){
+
+    const remaining =
+      Math.ceil((flashCooldownUntil-now)/1000);
+
+    status.textContent =
+      '🔦 Flash recharging... ' +
+      remaining +
+      's';
+
+    return;
+  }
+
+  // Activate Flash
+  flashActive=true;
+  flashUntil=now + FLASH_DURATION;
+  flashCooldownUntil=now + FLASH_COOLDOWN;
+
+  if(flashLight)
+    scene.remove(flashLight);
+
+  flashLight =
+    new THREE.PointLight(
+      0xfff2c2,
+      42,
+      24,
+      2
+    );
+
+  flashLight.position.set(
+    player.position.x,
+    4,
+    player.position.z
+  );
+
+  scene.add(flashLight);
+
+  status.textContent =
+    '🔦 Flash active — search!';
+
+  flashBtn.textContent='🔦';
+
+  // Remove light after 5 seconds
+  setTimeout(function(){
+
+    if(flashLight){
+
+      scene.remove(flashLight);
+      flashLight=null;
+    }
+
+  },FLASH_DURATION);
+}
 function openCell(x,z){
 
   const margin = .38;
