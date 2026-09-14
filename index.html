@@ -229,6 +229,8 @@ canvas{
 #shoot:active{transform:scale(.93)}
 #shoot.ready{animation:shootPulse 1s infinite}
 @keyframes shootPulse{50%{box-shadow:0 0 0 2px #171207,0 8px 28px #0009,0 0 45px #ff5757}}
+.modeBtn{border:1px solid #46534a;background:#182019;color:#cfd9d0;border-radius:10px;padding:9px 12px;font-weight:800;cursor:pointer}
+.modeBtn.active{background:#234238;border-color:#2dd4bf;color:#fff}
 @media(max-width:700px){#shoot{right:18px;bottom:104px}}
 
 </style>
@@ -241,7 +243,16 @@ canvas{
 <div id="start">
   <div class="card">
     <h1>🌲 Blind Path</h1>
-    <p>Find the hidden opponent in the forest. Get a clear line of sight to find them.</p>
+    <p>Hide & Seek in a dark 3D forest.</p>
+    <div id="modeRow" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:12px 0">
+      <button id="computerMode" type="button" class="modeBtn active">🤖 Computer</button>
+      <button id="createMode" type="button" class="modeBtn">👥 Create Game</button>
+      <button id="joinMode" type="button" class="modeBtn">🔗 Join Game</button>
+    </div>
+    <div id="roomPanel" style="display:none;margin:10px 0">
+      <input id="roomCode" maxlength="6" placeholder="6-digit code" autocomplete="off" style="width:150px;text-align:center;text-transform:uppercase;padding:11px;border-radius:10px;border:1px solid #44504a;background:#111712;color:#fff;font-weight:800;letter-spacing:3px">
+      <div id="roomInfo" style="margin-top:8px;font-size:13px;color:#b9c8bc"></div>
+    </div>
     <p>Use <b>WASD</b>, arrow keys, or the controls on mobile.</p>
     <button id="begin" type="button">Enter the Forest</button>
   </div>
@@ -270,6 +281,7 @@ canvas{
 <div id="hint">WASD / Arrow Keys · 🕳️ Avoid potholes · 🔦 Flash</div>
 
 <!-- Keep your local Three.js file -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/three.min.js"></script>
 
 <script>
@@ -290,6 +302,24 @@ const status = $("status");
 const distanceEl = $("distance");
 const flashBtn = $("flash");
 const shootBtn = $("shoot");
+const computerModeBtn = $("computerMode");
+const createModeBtn = $("createMode");
+const joinModeBtn = $("joinMode");
+const roomPanel = $("roomPanel");
+const roomCodeInput = $("roomCode");
+const roomInfo = $("roomInfo");
+
+const SUPABASE_URL = "https://daiykupnjfbcsycimxmz.supabase.co";
+const SUPABASE_KEY = "sb_publishable_DsXWL1_SIpxoC0yA2MNN1w_70D7pRQI";
+let supabaseClient = null;
+let networkChannel = null;
+let multiplayer = false;
+let role = "hunter";
+let roomCode = "";
+let networkReady = false;
+let opponentReady = false;
+let lastNetworkSend = 0;
+let remoteStateReceived = false;
 
 
 /* =========================================================
@@ -347,30 +377,134 @@ function cz(r){
 
 
 /* =========================================================
+   GAME MODE / MULTIPLAYER LOBBY
+========================================================= */
+
+let selectedMode = "computer";
+
+function setMode(mode){
+  selectedMode = mode;
+  multiplayer = mode !== "computer";
+  [computerModeBtn,createModeBtn,joinModeBtn].forEach(b=>b.classList.remove("active"));
+  if(mode === "computer") computerModeBtn.classList.add("active");
+  if(mode === "create") createModeBtn.classList.add("active");
+  if(mode === "join") joinModeBtn.classList.add("active");
+  roomPanel.style.display = mode === "computer" ? "none" : "block";
+  roomInfo.textContent = "";
+  begin.textContent = mode === "computer" ? "Enter the Forest" : (mode === "create" ? "Create & Enter" : "Join & Enter");
+}
+
+computerModeBtn.addEventListener("click",()=>setMode("computer"));
+createModeBtn.addEventListener("click",()=>setMode("create"));
+joinModeBtn.addEventListener("click",()=>setMode("join"));
+
+function makeRoomCode(){
+  const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let out="";
+  for(let i=0;i<6;i++) out+=chars[Math.floor(Math.random()*chars.length)];
+  return out;
+}
+
+function initRealtime(){
+  if(!window.supabase) throw new Error("Supabase library failed to load");
+  supabaseClient = window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+}
+
+async function setupMultiplayer(){
+  initRealtime();
+  if(!roomCode) throw new Error("Game code is required");
+  networkChannel = supabaseClient.channel("blind-path-"+roomCode,{config:{broadcast:{self:false},presence:{key:role}}});
+
+  networkChannel.on("broadcast",{event:"ready"},({payload})=>{
+    if(role === "hunter"){
+      opponentReady=true;
+      roomInfo.textContent="Player B connected. Starting game…";
+      status.textContent="Player B connected — Find the hider!";
+      networkChannel.send({type:"broadcast",event:"start",payload:{seed:seed}});
+      networkReady=true;
+    }
+  });
+
+  networkChannel.on("broadcast",{event:"start"},({payload})=>{
+    if(role === "hider"){
+      if(payload && Number.isFinite(payload.seed)) seed=payload.seed;
+      networkReady=true;
+      status.textContent="Player A is hunting. Hide!";
+      roomInfo.textContent="Connected — you are Player B (Hider).";
+    }
+  });
+
+  networkChannel.on("broadcast",{event:"state"},({payload})=>{
+    if(!payload || !hider) return;
+    hider.position.x=payload.x;
+    hider.position.z=payload.z;
+    if(Number.isFinite(payload.ry)) hider.rotation.y=payload.ry;
+    remoteStateReceived=true;
+  });
+
+  networkChannel.on("broadcast",{event:"hit"},()=>{
+    hiderFound=true; gameOver=true; hider.visible=true;
+    if(role === "hider") status.textContent="🎯 You were found!";
+  });
+
+  networkChannel.on("presence",{event:"sync"},()=>{
+    const state=networkChannel.presenceState();
+    const count=Object.keys(state).length;
+    if(count>=2 && role === "hunter" && !opponentReady){
+      opponentReady=true;
+      roomInfo.textContent="Player B connected. Starting game…";
+      status.textContent="Player B connected — Find the hider!";
+      networkChannel.send({type:"broadcast",event:"start",payload:{seed:seed}});
+      networkReady=true;
+    }
+  });
+
+  await networkChannel.subscribe(async(statusText)=>{
+    if(statusText === "SUBSCRIBED"){
+      await networkChannel.track({role});
+      if(role === "hider") networkChannel.send({type:"broadcast",event:"ready",payload:{role}});
+      else roomInfo.textContent="Waiting for Player B to join… Code: "+roomCode;
+    }
+  });
+}
+
+/* =========================================================
    START
 ========================================================= */
 
-begin.addEventListener("click",function(e){
-
+begin.addEventListener("click",async function(e){
   e.preventDefault();
-
   if(started) return;
+  if(typeof THREE === "undefined"){ status.textContent="3D engine failed to load"; return; }
 
-  if(typeof THREE === "undefined"){
-    status.textContent = "3D engine failed to load";
-    return;
+  if(selectedMode === "create"){
+    roomCode = makeRoomCode();
+    role = "hunter";
+    roomCodeInput.value = roomCode;
+  }else if(selectedMode === "join"){
+    roomCode = roomCodeInput.value.trim().toUpperCase();
+    if(roomCode.length !== 6){ roomInfo.textContent="Enter the 6-character game code."; return; }
+    role = "hider";
+  }else{
+    role = "hunter";
   }
 
-  started = true;
-
+  started=true;
   start.classList.add("hidden");
-  hud.style.display = "block";
-  flashBtn.style.display = "block";
+  hud.style.display="block";
+  flashBtn.style.display="block";
+  shootBtn.style.display="none";
+  status.textContent=multiplayer ? "Connecting to game…" : "Building forest…";
 
-  status.textContent = "Building forest…";
-
-  init();
-
+  try{
+    if(multiplayer) await setupMultiplayer();
+    init();
+    if(multiplayer && role === "hunter") status.textContent="Waiting for Player B — Code: "+roomCode;
+  }catch(err){
+    console.error(err);
+    status.textContent="Multiplayer connection failed";
+    roomInfo.textContent=err.message || "Please check the game code and try again.";
+  }
 });
 
 
@@ -498,10 +632,24 @@ function init(){
   createPlayer();
   createHider();
 
+  if(multiplayer && role === "hider"){
+    const localCell=hiderCell;
+    player.position.set(cx(localCell.c),0,cz(localCell.r));
+    hider.position.set(cx(startCell.c),0,cz(startCell.r));
+    hiderTarget=null;
+    hiderMoveTimer=999999;
+  }
+
+  if(multiplayer && role === "hunter"){
+    hiderTarget=null;
+    hiderMoveTimer=999999;
+  }
+
   updateCamera(1);
 
-  status.textContent =
-    "Find the opponent";
+  status.textContent = multiplayer
+    ? (role === "hunter" ? "Waiting for Player B — Code: "+roomCode : "Hide from Player A")
+    : "Find the opponent";
 
   requestAnimationFrame(loop);
 }
@@ -1727,7 +1875,7 @@ function createHider(){
     const leg=new THREE.Mesh(new THREE.CapsuleGeometry(.09,.5,5,8),pants); leg.position.set(side*.12,.45,0); leg.castShadow=true; hider.add(leg);
   }
   const marker=new THREE.Mesh(new THREE.SphereGeometry(.07,10,8),new THREE.MeshBasicMaterial({color:0xff5d5d})); marker.position.y=2.18; hider.add(marker);
-  hider.visible=false; scene.add(hider); chooseHiderMove(true);
+  hider.visible=false; scene.add(hider); if(!multiplayer || role === "hunter") chooseHiderMove(true);
 }
 
 function cellFromWorld(x,z){return{r:Math.round(z/CELL+(ROWS-1)/2),c:Math.round(x/CELL+(COLS-1)/2)};}
@@ -1795,7 +1943,7 @@ function updateHiderVisibility(){
   hiderVisible=visible;
   hider.visible=visible;
 
-  const ready=visible && distance<=16 && canShoot();
+  const ready=!multiplayer || role === "hunter" ? (visible && distance<=16 && canShoot()) : false;
 
   if(ready){
     shootBtn.style.display="block";
@@ -1813,18 +1961,18 @@ function updateHiderVisibility(){
       distanceEl.textContent="Opponent: "+Math.max(1,Math.round(distance/2))+" m";
 
       if(now>=hazardMessageUntil){
-        status.textContent=distance<5
-          ?"⚠️ Opponent nearby!"
-          :"You can see the opponent — get into position";
+        status.textContent=multiplayer && role === "hider"
+          ? (distance<5 ? "⚠️ Hunter nearby — run!" : "👁️ Hunter visible — hide!")
+          : (distance<5 ? "⚠️ Opponent nearby!" : "You can see the opponent — get into position");
       }
     }else{
       visibility.textContent="Hidden";
       visibility.style.color="#b9c8bc";
       distanceEl.textContent="Opponent: ?";
       if(now>=hazardMessageUntil){
-        status.textContent=flashActive
-          ?"🔦 Search the forest..."
-          :"Find the opponent";
+        status.textContent=multiplayer && role === "hider"
+          ? (flashActive ? "🔦 Hunter may be nearby..." : "Hide from the hunter")
+          : (flashActive ? "🔦 Search the forest..." : "Find the opponent");
       }
     }
   }
@@ -1845,6 +1993,7 @@ function chooseHiderMove(initial=false){
 
 function updateHider(dt){
   if(!hider||gameOver||hiderFound) return;
+  if(multiplayer) return;
   hiderMoveTimer-=dt;
   if(!hiderTarget||hiderMoveTimer<=0) chooseHiderMove();
   if(!hiderTarget) return;
@@ -2111,6 +2260,7 @@ function canShoot(){
 function shoot(){
 
   if(!player || gameOver) return;
+  if(multiplayer && role !== "hunter") return;
 
   const now=performance.now();
 
@@ -2131,6 +2281,7 @@ function shoot(){
   hiderFound=true;
   gameOver=true;
   hider.visible=true;
+  if(multiplayer && networkChannel) networkChannel.send({type:"broadcast",event:"hit",payload:{}});
 
   status.textContent="🎯 HIT! You found the opponent!";
   distanceEl.textContent="Opponent caught";
@@ -2339,6 +2490,10 @@ function loop(){
 
   }
 
+  if(multiplayer && networkChannel && player && performance.now()-lastNetworkSend>50){
+    lastNetworkSend=performance.now();
+    networkChannel.send({type:"broadcast",event:"state",payload:{x:player.position.x,z:player.position.z,ry:player.rotation.y}});
+  }
 
   renderer.render(
     scene,
