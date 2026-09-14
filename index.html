@@ -1869,7 +1869,20 @@ function createHider(){
     const dg=Math.hypot(r-goalCell.r,c-goalCell.c);
     if(ds>18 && dg>8) candidates.push({r,c});
   }
-  hiderCell=candidates.length?candidates[Math.floor(rnd()*candidates.length)]:{r:Math.floor(ROWS/2),c:Math.floor(COLS/2)};
+  if(multiplayer){
+    // In multiplayer the Hunter and Hider must start at clearly different
+    // locations. Pick a deterministic walkable cell far from the Hunter
+    // spawn so both phones calculate the same Hider starting position.
+    let best=candidates[0] || {r:Math.floor(ROWS/2),c:Math.floor(COLS/2)};
+    let bestScore=-1;
+    for(const candidate of candidates){
+      const score=Math.abs(candidate.r-startCell.r)+Math.abs(candidate.c-startCell.c);
+      if(score>bestScore){ bestScore=score; best=candidate; }
+    }
+    hiderCell=best;
+  }else{
+    hiderCell=candidates.length?candidates[Math.floor(rnd()*candidates.length)]:{r:Math.floor(ROWS/2),c:Math.floor(COLS/2)};
+  }
   hider.position.set(cx(hiderCell.c),0,cz(hiderCell.r));
 
   const skin=new THREE.MeshStandardMaterial({color:0xb97859,roughness:.85});
