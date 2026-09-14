@@ -498,7 +498,8 @@ begin.addEventListener("click",async function(e){
   started=true;
   start.classList.add("hidden");
   hud.style.display="block";
-  flashBtn.style.display=(multiplayer && role === "hider") ? "none" : "block";
+  flashBtn.style.display="block";
+  shootBtn.style.display="none";
   shootBtn.style.display="none";
   status.textContent=multiplayer ? "Connecting to game…" : "Building forest…";
 
@@ -1870,15 +1871,46 @@ function createHider(){
     if(ds>18 && dg>8) candidates.push({r,c});
   }
   if(multiplayer){
-    // In multiplayer the Hunter and Hider must start at clearly different
-    // locations. Pick a deterministic walkable cell far from the Hunter
-    // spawn so both phones calculate the same Hider starting position.
-    let best=candidates[0] || {r:Math.floor(ROWS/2),c:Math.floor(COLS/2)};
+    // Multiplayer uses one deterministic spawn for the Hunter and one
+    // deterministic, maze-connected spawn for the Hider.
+    // Find the walkable cell with the greatest real maze distance from
+    // the Hunter start, so the two players can never intentionally share
+    // the same starting cell.
+    const queue=[{r:startCell.r,c:startCell.c}];
+    const dist=new Map();
+    const key=(r,c)=>r+","+c;
+    dist.set(key(startCell.r,startCell.c),0);
+
+    for(let qi=0;qi<queue.length;qi++){
+      const cur=queue[qi];
+      const cd=dist.get(key(cur.r,cur.c));
+      for(const [dr,dc] of [[1,0],[-1,0],[0,1],[0,-1]]){
+        const nr=cur.r+dr, nc=cur.c+dc;
+        if(nr<0||nr>=ROWS||nc<0||nc>=COLS||maze[nr][nc]!==0) continue;
+        const k=key(nr,nc);
+        if(!dist.has(k)){
+          dist.set(k,cd+1);
+          queue.push({r:nr,c:nc});
+        }
+      }
+    }
+
+    let best={r:startCell.r,c:startCell.c};
     let bestScore=-1;
     for(const candidate of candidates){
-      const score=Math.abs(candidate.r-startCell.r)+Math.abs(candidate.c-startCell.c);
-      if(score>bestScore){ bestScore=score; best=candidate; }
+      const score=dist.get(key(candidate.r,candidate.c)) ?? -1;
+      if(score>bestScore){
+        bestScore=score;
+        best=candidate;
+      }
     }
+
+    // Safety fallback: never allow the multiplayer Hider to spawn
+    // on the Hunter's cell.
+    if(best.r===startCell.r && best.c===startCell.c){
+      best={r:goalCell.r,c:goalCell.c};
+    }
+
     hiderCell=best;
   }else{
     hiderCell=candidates.length?candidates[Math.floor(rnd()*candidates.length)]:{r:Math.floor(ROWS/2),c:Math.floor(COLS/2)};
@@ -1965,7 +1997,7 @@ function updateHiderVisibility(){
   hiderVisible=visible;
   hider.visible=visible;
 
-  const ready=!multiplayer || role === "hunter" ? (visible && distance<=16 && canShoot()) : false;
+  const ready=(visible && distance<=16 && canShoot());
 
   if(ready){
     shootBtn.style.display="block";
@@ -1983,8 +2015,8 @@ function updateHiderVisibility(){
       distanceEl.textContent="Opponent: "+Math.max(1,Math.round(distance/2))+" m";
 
       if(now>=hazardMessageUntil){
-        status.textContent=multiplayer && role === "hider"
-          ? (distance<5 ? "⚠️ Hunter nearby — run!" : "👁️ Hunter visible — hide!")
+        status.textContent=multiplayer
+          ? (distance<5 ? "⚠️ Opponent nearby!" : "👁️ Opponent visible — get into position")
           : (distance<5 ? "⚠️ Opponent nearby!" : "You can see the opponent — get into position");
       }
     }else{
@@ -1992,8 +2024,8 @@ function updateHiderVisibility(){
       visibility.style.color="#b9c8bc";
       distanceEl.textContent="Opponent: ?";
       if(now>=hazardMessageUntil){
-        status.textContent=multiplayer && role === "hider"
-          ? (flashActive ? "🔦 Hunter may be nearby..." : "Hide from the hunter")
+        status.textContent=multiplayer
+          ? (flashActive ? "🔦 Search for your opponent..." : "Find your opponent")
           : (flashActive ? "🔦 Search the forest..." : "Find the opponent");
       }
     }
@@ -2220,8 +2252,7 @@ function flash(){
 
   if(!player || gameOver) return;
 
-  // Flash is a Hunter ability in multiplayer.
-  if(multiplayer && role !== "hunter") return;
+  // Both multiplayer players have the same equipment.
 
   const now=performance.now();
 
@@ -2288,7 +2319,7 @@ function canShoot(){
 function shoot(){
 
   if(!player || gameOver) return;
-  if(multiplayer && (role !== "hunter" || !networkReady)) return;
+  if(multiplayer && !networkReady) return;
 
   const now=performance.now();
 
