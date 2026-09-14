@@ -463,6 +463,10 @@ async function setupMultiplayer(){
 
   await networkChannel.subscribe(async(statusText)=>{
     if(statusText === "SUBSCRIBED"){
+      // The realtime channel is connected.  Movement must not wait for
+      // the round-start broadcast; otherwise a missed broadcast can leave
+      // both mobile players permanently locked in place.
+      networkReady = true;
       await networkChannel.track({role});
       if(role === "hider") networkChannel.send({type:"broadcast",event:"ready",payload:{role}});
       else roomInfo.textContent="Waiting for Player B to join… Code: "+roomCode;
@@ -2086,9 +2090,8 @@ function updatePlayer(dt){
   if(!player || gameOver)
     return;
 
-  // Multiplayer round starts only after both players are connected.
-  if(multiplayer && !networkReady)
-    return;
+  // In multiplayer, movement is allowed as soon as the realtime channel
+  // is connected. The round-start signal controls gameplay state, not input.
 
 
   let x =
