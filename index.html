@@ -1829,7 +1829,6 @@ function updateHiderVisibility(){
     }
   }
 }
-function chooseHiderMove
 function chooseHiderMove(initial=false){
   if(!hider||gameOver) return;
   const base=cellFromWorld(hider.position.x,hider.position.z),dirs=[[0,1],[0,-1],[1,0],[-1,0]],options=[];
@@ -2018,7 +2017,12 @@ function updatePlayer(dt){
 ========================================================= */
 
 function checkGoal(){
- 
+  if(!player || !goalObject || gameOver) return;
+  const d=Math.hypot(player.position.x-goalObject.position.x, player.position.z-goalObject.position.z);
+  if(d < 1.4){
+    status.textContent="🏁 You reached the exit";
+  }
+}
 
 /* =========================================================
    FLASH + SHOOT
