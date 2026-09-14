@@ -207,6 +207,30 @@ canvas{
   #controls{display:block}
   #hint{display:none}
 }
+
+#shoot{
+  position:fixed;
+  right:102px;
+  bottom:28px;
+  z-index:25;
+  display:none;
+  width:82px;
+  height:82px;
+  padding:0;
+  border:3px solid #fff;
+  border-radius:50%;
+  background:#c94a4a;
+  color:#fff;
+  font-size:28px;
+  box-shadow:0 0 0 2px #171207,0 8px 28px #0009,0 0 35px #c94a4a66;
+  cursor:pointer;
+  font-weight:900;
+}
+#shoot:active{transform:scale(.93)}
+#shoot.ready{animation:shootPulse 1s infinite}
+@keyframes shootPulse{50%{box-shadow:0 0 0 2px #171207,0 8px 28px #0009,0 0 45px #ff5757}}
+@media(max-width:700px){#shoot{right:18px;bottom:104px}}
+
 </style>
 </head>
 
@@ -234,6 +258,7 @@ canvas{
 </div>
 
 <button id="flash" type="button">🔦</button>
+<button id="shoot" type="button">🎯</button>
 
 <div id="controls">
   <button class="ctrl" id="up" type="button">▲</button>
@@ -264,6 +289,7 @@ const hud = $("hud");
 const status = $("status");
 const distanceEl = $("distance");
 const flashBtn = $("flash");
+const shootBtn = $("shoot");
 
 
 /* =========================================================
@@ -293,6 +319,8 @@ let hiderVisible=false, hiderFound=false, gameOver=false;
 let flashActive=false;
 let flashUntil=0;
 let flashCooldownUntil=0;
+let shotCooldownUntil=0;
+let shotCount=0;
 
 const FLASH_DURATION=5000;
 const FLASH_COOLDOWN=8000;
@@ -1738,6 +1766,70 @@ function clearLineOfSight(ax,az,bx,bz,maxDistance=12){
 
   return true;
 }
+
+function updateHiderVisibility(){
+
+  if(!player || !hider || hiderFound) return;
+
+  const now=performance.now();
+
+  if(flashActive && now>=flashUntil){
+    flashActive=false;
+  }
+
+  const distance=Math.hypot(
+    hider.position.x-player.position.x,
+    hider.position.z-player.position.z
+  );
+
+  const range=flashActive ? FLASH_VISION : NORMAL_VISION;
+
+  const visible=clearLineOfSight(
+    player.position.x,
+    player.position.z,
+    hider.position.x,
+    hider.position.z,
+    range
+  );
+
+  hiderVisible=visible;
+  hider.visible=visible;
+
+  const ready=visible && distance<=16 && canShoot();
+
+  if(ready){
+    shootBtn.style.display="block";
+    shootBtn.classList.add("ready");
+    visibility.textContent=flashActive ? "🎯 AIM READY" : "🎯 SHOOT";
+    visibility.style.color="#ff6b6b";
+    distanceEl.textContent="Opponent: "+Math.max(1,Math.round(distance/2))+" m";
+  }else{
+    shootBtn.style.display="none";
+    shootBtn.classList.remove("ready");
+
+    if(visible){
+      visibility.textContent=flashActive ? "🔦 VISIBLE" : "👁️ VISIBLE";
+      visibility.style.color=flashActive ? "#f3d15b" : "#f4d66d";
+      distanceEl.textContent="Opponent: "+Math.max(1,Math.round(distance/2))+" m";
+
+      if(now>=hazardMessageUntil){
+        status.textContent=distance<5
+          ?"⚠️ Opponent nearby!"
+          :"You can see the opponent — get into position";
+      }
+    }else{
+      visibility.textContent="Hidden";
+      visibility.style.color="#b9c8bc";
+      distanceEl.textContent="Opponent: ?";
+      if(now>=hazardMessageUntil){
+        status.textContent=flashActive
+          ?"🔦 Search the forest..."
+          :"Find the opponent";
+      }
+    }
+  }
+}
+function chooseHiderMove
 function chooseHiderMove(initial=false){
   if(!hider||gameOver) return;
   const base=cellFromWorld(hider.position.x,hider.position.z),dirs=[[0,1],[0,-1],[1,0],[-1,0]],options=[];
@@ -1765,67 +1857,6 @@ function updateHider(dt){
   const target=Math.atan2(dx,dz); let diff=target-hider.rotation.y; while(diff>Math.PI)diff-=Math.PI*2; while(diff<-Math.PI)diff+=Math.PI*2; hider.rotation.y+=diff*Math.min(1,dt*8);
 }
 
-function flash(){
-
-  if(!player || gameOver)
-    return;
-
-  const now = performance.now();
-
-  // Prevent Flash during cooldown
-  if(now < flashCooldownUntil){
-
-    const remaining =
-      Math.ceil((flashCooldownUntil-now)/1000);
-
-    status.textContent =
-      '🔦 Flash recharging... ' +
-      remaining +
-      's';
-
-    return;
-  }
-
-  // Activate Flash
-  flashActive=true;
-  flashUntil=now + FLASH_DURATION;
-  flashCooldownUntil=now + FLASH_COOLDOWN;
-
-  if(flashLight)
-    scene.remove(flashLight);
-
-  flashLight =
-    new THREE.PointLight(
-      0xfff2c2,
-      42,
-      24,
-      2
-    );
-
-  flashLight.position.set(
-    player.position.x,
-    4,
-    player.position.z
-  );
-
-  scene.add(flashLight);
-
-  status.textContent =
-    '🔦 Flash active — search!';
-
-  flashBtn.textContent='🔦';
-
-  // Remove light after 5 seconds
-  setTimeout(function(){
-
-    if(flashLight){
-
-      scene.remove(flashLight);
-      flashLight=null;
-    }
-
-  },FLASH_DURATION);
-}
 function openCell(x,z){
 
   const margin = .38;
@@ -1987,128 +2018,129 @@ function updatePlayer(dt){
 ========================================================= */
 
 function checkGoal(){
-  updateHiderVisibility();
-}
+ 
 
 /* =========================================================
-   CAMERA
-========================================================= */
-
-function updateCamera(dt){
-
-  if(!player)
-    return;
-
-
-  const smooth =
-    Math.min(
-      1,
-      dt*5
-    );
-
-
-  const targetX =
-    player.position.x;
-
-  const targetZ =
-    player.position.z;
-
-
-  camera.position.x +=
-    (
-      targetX -
-      camera.position.x
-    ) * smooth;
-
-
-  camera.position.y +=
-    (
-      38 -
-      camera.position.y
-    ) * smooth;
-
-
-  camera.position.z +=
-    (
-      targetZ + 13 -
-      camera.position.z
-    ) * smooth;
-
-
-  camera.lookAt(
-    targetX,
-    0,
-    targetZ
-  );
-
-}
-
-
-/* =========================================================
-   FLASH
+   FLASH + SHOOT
 ========================================================= */
 
 function flash(){
 
-  if(!player)
+  if(!player || gameOver) return;
+
+  const now=performance.now();
+
+  if(now < flashCooldownUntil){
+    const remaining=Math.ceil((flashCooldownUntil-now)/1000);
+    status.textContent="🔦 Flash recharging... "+remaining+"s";
     return;
+  }
 
+  flashActive=true;
+  flashUntil=now+FLASH_DURATION;
+  flashCooldownUntil=now+FLASH_COOLDOWN;
 
-  if(flashLight)
-    scene.remove(flashLight);
+  if(flashLight) scene.remove(flashLight);
 
+  flashLight=new THREE.PointLight(0xfff2c2,42,26,2);
+  flashLight.position.set(player.position.x,4,player.position.z);
+  scene.add(flashLight);
 
-  flashLight =
-    new THREE.PointLight(
-      0xfff2c2,
-      42,
-      20,
-      2
-    );
+  status.textContent="🔦 Flash active — search for the opponent";
 
-
-  flashLight.position.set(
-    player.position.x,
-    3,
-    player.position.z
-  );
-
-
-  scene.add(
-    flashLight
-  );
-
-
-  setTimeout(
-    function(){
-
-      if(flashLight){
-
-        scene.remove(
-          flashLight
-        );
-
-        flashLight = null;
-
-      }
-
-    },
-    5000
-  );
-
+  setTimeout(function(){
+    if(flashLight){
+      scene.remove(flashLight);
+      flashLight=null;
+    }
+  },FLASH_DURATION);
 }
 
+function canShoot(){
 
-flashBtn.addEventListener(
-  "click",
-  function(e){
+  if(!player || !hider || hiderFound || gameOver) return false;
 
-    e.preventDefault();
+  const now=performance.now();
+  if(now < shotCooldownUntil) return false;
 
-    flash();
+  const dx=hider.position.x-player.position.x;
+  const dz=hider.position.z-player.position.z;
+  const distance=Math.hypot(dx,dz);
 
+  /* The opponent must be close enough to make a meaningful shot. */
+  if(distance>16) return false;
+
+  /* The opponent must be visible through the maze. */
+  if(!clearLineOfSight(
+    player.position.x,
+    player.position.z,
+    hider.position.x,
+    hider.position.z,
+    16
+  )) return false;
+
+  /* Require the player to be facing the opponent. */
+  const playerAngle=player.rotation.y;
+  const targetAngle=Math.atan2(dx,dz);
+
+  let diff=targetAngle-playerAngle;
+  while(diff>Math.PI) diff-=Math.PI*2;
+  while(diff<-Math.PI) diff+=Math.PI*2;
+
+  return Math.abs(diff)<0.42;
+}
+
+function shoot(){
+
+  if(!player || gameOver) return;
+
+  const now=performance.now();
+
+  if(now < shotCooldownUntil){
+    const remaining=Math.ceil((shotCooldownUntil-now)/1000);
+    status.textContent="🎯 Shot reloading... "+remaining+"s";
+    return;
   }
-);
+
+  if(!canShoot()){
+    status.textContent="🎯 No clear shot — face the opponent";
+    shotCooldownUntil=now+900;
+    return;
+  }
+
+  shotCount++;
+
+  hiderFound=true;
+  gameOver=true;
+  hider.visible=true;
+
+  status.textContent="🎯 HIT! You found the opponent!";
+  distanceEl.textContent="Opponent caught";
+  visibility.textContent="CAUGHT";
+  visibility.style.color="#ff6b6b";
+
+  shootBtn.classList.remove("ready");
+  shootBtn.style.display="none";
+
+  /* Small hit flash */
+  const hitLight=new THREE.PointLight(0xff4444,28,10,2);
+  hitLight.position.set(hider.position.x,2,hider.position.z);
+  scene.add(hitLight);
+
+  setTimeout(function(){
+    scene.remove(hitLight);
+  },450);
+}
+
+flashBtn.addEventListener("click",function(e){
+  e.preventDefault();
+  flash();
+});
+
+shootBtn.addEventListener("click",function(e){
+  e.preventDefault();
+  shoot();
+});
 
 
 /* =========================================================
