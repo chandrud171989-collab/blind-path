@@ -405,6 +405,15 @@ function makeRoomCode(){
   return out;
 }
 
+function seedFromRoomCode(code){
+  let h=2166136261;
+  for(let i=0;i<code.length;i++){
+    h ^= code.charCodeAt(i);
+    h = Math.imul(h,16777619);
+  }
+  return (h>>>0) || 734921;
+}
+
 function initRealtime(){
   if(!window.supabase) throw new Error("Supabase library failed to load");
   supabaseClient = window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
@@ -413,63 +422,47 @@ function initRealtime(){
 async function setupMultiplayer(){
   initRealtime();
   if(!roomCode) throw new Error("Game code is required");
-  networkChannel = supabaseClient.channel("blind-path-"+roomCode,{config:{broadcast:{self:false},presence:{key:role}}});
 
-  networkChannel.on("broadcast",{event:"ready"},({payload})=>{
-    if(role === "hunter"){
-      opponentReady=true;
-      roomInfo.textContent="Player B connected. Starting game…";
-      status.textContent="Player B connected — Find the hider!";
-      networkChannel.send({type:"broadcast",event:"start",payload:{seed:seed}});
-      networkReady=true;
-    }
-  });
+  // The room code deterministically defines the maze seed.
+  // Both phones therefore build the exact same maze and exact same spawns.
+  seed=seedFromRoomCode(roomCode);
 
-  networkChannel.on("broadcast",{event:"start"},({payload})=>{
-    if(payload && Number.isFinite(payload.seed)) seed=payload.seed;
-    networkReady=true;
-    if(role === "hider"){
-      status.textContent="Player A is hunting. Hide!";
-      roomInfo.textContent="Round started — you are Player B (Hider).";
-    }else{
-      status.textContent="Player B connected — Find the hider!";
-    }
+  networkChannel = supabaseClient.channel("blind-path-"+roomCode,{
+    config:{broadcast:{self:false},presence:{key:role}}
   });
 
   networkChannel.on("broadcast",{event:"state"},({payload})=>{
     if(!payload || !hider) return;
-    hider.position.x=payload.x;
-    hider.position.z=payload.z;
+    hider.position.x=Number(payload.x)||0;
+    hider.position.z=Number(payload.z)||0;
     if(Number.isFinite(payload.ry)) hider.rotation.y=payload.ry;
     remoteStateReceived=true;
   });
 
-  networkChannel.on("broadcast",{event:"hit"},()=>{
-    hiderFound=true; gameOver=true; hider.visible=true;
-    if(role === "hider") status.textContent="🎯 You were found!";
-  });
-
-  networkChannel.on("presence",{event:"sync"},()=>{
-    const state=networkChannel.presenceState();
-    const count=Object.keys(state).length;
-    if(count>=2 && role === "hunter" && !opponentReady){
-      opponentReady=true;
-      roomInfo.textContent="Player B connected. Starting game…";
-      status.textContent="Player B connected — Find the hider!";
-      networkChannel.send({type:"broadcast",event:"start",payload:{seed:seed}});
-      networkReady=true;
+  networkChannel.on("broadcast",{event:"hit"},({payload})=>{
+    if(gameOver) return;
+    hiderFound=true;
+    gameOver=true;
+    hider.visible=true;
+    shootBtn.style.display="none";
+    flashBtn.style.display="block";
+    if(payload && payload.shooterRole===role){
+      status.textContent="🎯 HIT! You caught the opponent!";
+    }else{
+      status.textContent="🎯 You were caught!";
     }
+    distanceEl.textContent="Opponent caught";
+    visibility.textContent="CAUGHT";
+    visibility.style.color="#ff6b6b";
   });
 
   await networkChannel.subscribe(async(statusText)=>{
     if(statusText === "SUBSCRIBED"){
-      // The realtime channel is connected.  Movement must not wait for
-      // the round-start broadcast; otherwise a missed broadcast can leave
-      // both mobile players permanently locked in place.
-      networkReady = true;
+      networkReady=true;
       await networkChannel.track({role});
-      if(role === "hider") networkChannel.send({type:"broadcast",event:"ready",payload:{role}});
-      else roomInfo.textContent="Waiting for Player B to join… Code: "+roomCode;
+      roomInfo.textContent = role === "hunter"
+        ? "Waiting for Player B to join… Code: "+roomCode
+        : "Connected to Player A — you are Player B";
     }
   });
 }
@@ -499,7 +492,6 @@ begin.addEventListener("click",async function(e){
   start.classList.add("hidden");
   hud.style.display="block";
   flashBtn.style.display="block";
-  shootBtn.style.display="none";
   shootBtn.style.display="none";
   status.textContent=multiplayer ? "Connecting to game…" : "Building forest…";
 
@@ -2340,9 +2332,9 @@ function shoot(){
   hiderFound=true;
   gameOver=true;
   hider.visible=true;
-  if(multiplayer && networkChannel) networkChannel.send({type:"broadcast",event:"hit",payload:{}});
+  if(multiplayer && networkChannel) networkChannel.send({type:"broadcast",event:"hit",payload:{shooterRole:role}});
 
-  status.textContent="🎯 HIT! You found the opponent!";
+  status.textContent="🎯 HIT! You caught the opponent!";
   distanceEl.textContent="Opponent caught";
   visibility.textContent="CAUGHT";
   visibility.style.color="#ff6b6b";
