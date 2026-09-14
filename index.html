@@ -426,11 +426,13 @@ async function setupMultiplayer(){
   });
 
   networkChannel.on("broadcast",{event:"start"},({payload})=>{
+    if(payload && Number.isFinite(payload.seed)) seed=payload.seed;
+    networkReady=true;
     if(role === "hider"){
-      if(payload && Number.isFinite(payload.seed)) seed=payload.seed;
-      networkReady=true;
       status.textContent="Player A is hunting. Hide!";
-      roomInfo.textContent="Connected — you are Player B (Hider).";
+      roomInfo.textContent="Round started — you are Player B (Hider).";
+    }else{
+      status.textContent="Player B connected — Find the hider!";
     }
   });
 
@@ -492,14 +494,17 @@ begin.addEventListener("click",async function(e){
   started=true;
   start.classList.add("hidden");
   hud.style.display="block";
-  flashBtn.style.display="block";
+  flashBtn.style.display=(multiplayer && role === "hider") ? "none" : "block";
   shootBtn.style.display="none";
   status.textContent=multiplayer ? "Connecting to game…" : "Building forest…";
 
   try{
     if(multiplayer) await setupMultiplayer();
     init();
-    if(multiplayer && role === "hunter") status.textContent="Waiting for Player B — Code: "+roomCode;
+    if(multiplayer && role === "hunter") {
+      status.textContent="Waiting for Player B — Code: "+roomCode;
+      roomInfo.textContent="Share this code with Player B: "+roomCode;
+    }
   }catch(err){
     console.error(err);
     status.textContent="Multiplayer connection failed";
@@ -2081,6 +2086,10 @@ function updatePlayer(dt){
   if(!player || gameOver)
     return;
 
+  // Multiplayer round starts only after both players are connected.
+  if(multiplayer && !networkReady)
+    return;
+
 
   let x =
     (keys.d || keys.arrowright ? 1 : 0) -
@@ -2195,6 +2204,9 @@ function flash(){
 
   if(!player || gameOver) return;
 
+  // Flash is a Hunter ability in multiplayer.
+  if(multiplayer && role !== "hunter") return;
+
   const now=performance.now();
 
   if(now < flashCooldownUntil){
@@ -2260,7 +2272,7 @@ function canShoot(){
 function shoot(){
 
   if(!player || gameOver) return;
-  if(multiplayer && role !== "hunter") return;
+  if(multiplayer && (role !== "hunter" || !networkReady)) return;
 
   const now=performance.now();
 
