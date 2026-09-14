@@ -433,14 +433,16 @@ async function setupMultiplayer(){
 
   networkChannel.on("broadcast",{event:"state"},({payload})=>{
     if(!payload || !hider) return;
-    hider.position.x=Number(payload.x)||0;
-    hider.position.z=Number(payload.z)||0;
-    if(Number.isFinite(payload.ry)) hider.rotation.y=payload.ry;
+    if(payload.role && payload.role===role) return;
+    if(Number.isFinite(Number(payload.x))) hider.position.x=Number(payload.x);
+    if(Number.isFinite(Number(payload.z))) hider.position.z=Number(payload.z);
+    if(Number.isFinite(Number(payload.ry))) hider.rotation.y=Number(payload.ry);
     remoteStateReceived=true;
   });
 
   networkChannel.on("broadcast",{event:"hit"},({payload})=>{
     if(gameOver) return;
+    if(payload && payload.loserRole && payload.loserRole !== role && payload.shooterRole !== role) return;
     hiderFound=true;
     gameOver=true;
     hider.visible=true;
@@ -634,15 +636,13 @@ function init(){
   createPlayer();
   createHider();
 
-  if(multiplayer && role === "hider"){
-    const localCell=hiderCell;
+  if(multiplayer){
+    // Explicit role-based local/remote spawn. Both devices use the same
+    // deterministic maze seed, so these positions are identical on both sides.
+    const localCell = role === "hunter" ? startCell : goalCell;
+    const remoteCell = role === "hunter" ? goalCell : startCell;
     player.position.set(cx(localCell.c),0,cz(localCell.r));
-    hider.position.set(cx(startCell.c),0,cz(startCell.r));
-    hiderTarget=null;
-    hiderMoveTimer=999999;
-  }
-
-  if(multiplayer && role === "hunter"){
+    hider.position.set(cx(remoteCell.c),0,cz(remoteCell.r));
     hiderTarget=null;
     hiderMoveTimer=999999;
   }
@@ -1855,56 +1855,19 @@ function createPlayer(){
 
 function createHider(){
   hider=new THREE.Group();
-  const candidates=[];
-  for(let r=1;r<ROWS-1;r++) for(let c=1;c<COLS-1;c++){
-    if(maze[r][c]!==0) continue;
-    const ds=Math.hypot(r-startCell.r,c-startCell.c);
-    const dg=Math.hypot(r-goalCell.r,c-goalCell.c);
-    if(ds>18 && dg>8) candidates.push({r,c});
-  }
+  // Multiplayer uses fixed, deterministic spawn cells:
+  // Hunter = maze entrance, Hider = maze exit. This guarantees the two
+  // devices never start on the same cell and both calculate the same result.
   if(multiplayer){
-    // Multiplayer uses one deterministic spawn for the Hunter and one
-    // deterministic, maze-connected spawn for the Hider.
-    // Find the walkable cell with the greatest real maze distance from
-    // the Hunter start, so the two players can never intentionally share
-    // the same starting cell.
-    const queue=[{r:startCell.r,c:startCell.c}];
-    const dist=new Map();
-    const key=(r,c)=>r+","+c;
-    dist.set(key(startCell.r,startCell.c),0);
-
-    for(let qi=0;qi<queue.length;qi++){
-      const cur=queue[qi];
-      const cd=dist.get(key(cur.r,cur.c));
-      for(const [dr,dc] of [[1,0],[-1,0],[0,1],[0,-1]]){
-        const nr=cur.r+dr, nc=cur.c+dc;
-        if(nr<0||nr>=ROWS||nc<0||nc>=COLS||maze[nr][nc]!==0) continue;
-        const k=key(nr,nc);
-        if(!dist.has(k)){
-          dist.set(k,cd+1);
-          queue.push({r:nr,c:nc});
-        }
-      }
-    }
-
-    let best={r:startCell.r,c:startCell.c};
-    let bestScore=-1;
-    for(const candidate of candidates){
-      const score=dist.get(key(candidate.r,candidate.c)) ?? -1;
-      if(score>bestScore){
-        bestScore=score;
-        best=candidate;
-      }
-    }
-
-    // Safety fallback: never allow the multiplayer Hider to spawn
-    // on the Hunter's cell.
-    if(best.r===startCell.r && best.c===startCell.c){
-      best={r:goalCell.r,c:goalCell.c};
-    }
-
-    hiderCell=best;
+    hiderCell = {r:goalCell.r,c:goalCell.c};
   }else{
+    const candidates=[];
+    for(let r=1;r<ROWS-1;r++) for(let c=1;c<COLS-1;c++){
+      if(maze[r][c]!==0) continue;
+      const ds=Math.hypot(r-startCell.r,c-startCell.c);
+      const dg=Math.hypot(r-goalCell.r,c-goalCell.c);
+      if(ds>18 && dg>8) candidates.push({r,c});
+    }
     hiderCell=candidates.length?candidates[Math.floor(rnd()*candidates.length)]:{r:Math.floor(ROWS/2),c:Math.floor(COLS/2)};
   }
   hider.position.set(cx(hiderCell.c),0,cz(hiderCell.r));
@@ -2332,7 +2295,11 @@ function shoot(){
   hiderFound=true;
   gameOver=true;
   hider.visible=true;
-  if(multiplayer && networkChannel) networkChannel.send({type:"broadcast",event:"hit",payload:{shooterRole:role}});
+  if(multiplayer && networkChannel) networkChannel.send({
+    type:"broadcast",
+    event:"hit",
+    payload:{shooterRole:role,loserRole:(role === "hunter" ? "hider" : "hunter"),timestamp:Date.now()}
+  });
 
   status.textContent="🎯 HIT! You caught the opponent!";
   distanceEl.textContent="Opponent caught";
@@ -2543,7 +2510,7 @@ function loop(){
 
   if(multiplayer && networkChannel && player && performance.now()-lastNetworkSend>50){
     lastNetworkSend=performance.now();
-    networkChannel.send({type:"broadcast",event:"state",payload:{x:player.position.x,z:player.position.z,ry:player.rotation.y}});
+    networkChannel.send({type:"broadcast",event:"state",payload:{role:role,x:player.position.x,z:player.position.z,ry:player.rotation.y}});
   }
 
   renderer.render(
