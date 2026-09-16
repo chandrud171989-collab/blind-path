@@ -120,6 +120,32 @@ canvas{
   font-weight:900;
 }
 
+#goldClue{
+  position:fixed;
+  left:50%;
+  top:92px;
+  transform:translateX(-50%);
+  z-index:21;
+  display:none;
+  padding:8px 14px;
+  border-radius:12px;
+  background:#071009dd;
+  border:1px solid #806a32;
+  color:#ffe58a;
+  font-size:13px;
+  font-weight:900;
+  box-shadow:0 6px 22px #0008;
+  pointer-events:none;
+  white-space:nowrap;
+}
+#goldArrow{
+  display:inline-block;
+  margin-left:7px;
+  font-size:20px;
+  line-height:12px;
+  transform-origin:50% 50%;
+}
+
 /* ---------- Flash ---------- */
 
 #flash{
@@ -276,6 +302,8 @@ canvas{
   </div>
 </div>
 
+<div id="goldClue">🪙 Gold is available <span id="goldArrow">↑</span></div>
+
 <button id="flash" type="button">🔦</button>
 <button id="shoot" type="button">🎯</button>
 
@@ -308,6 +336,7 @@ const game = $("game");
 const hud = $("hud");
 const status = $("status");
 const distanceEl = $("distance");
+const goldClue = $("goldClue");
 const flashBtn = $("flash");
 const shootBtn = $("shoot");
 const computerModeBtn = $("computerMode");
@@ -355,6 +384,10 @@ let maze = [];
 let startCell;
 let goalCell;
 let goalObject;
+
+let goldObject = null;
+let goldCell = null;
+let goldCollected = false;
 let hider=null, hiderCell=null, hiderTarget=null, hiderMoveTimer=0;
 let hiderVisible=false, hiderFound=false, gameOver=false;
 let flashActive=false;
@@ -678,7 +711,7 @@ function init(){
 
   status.textContent = multiplayer
     ? (role === "hunter" ? "Waiting for Player B — Code: "+roomCode : "Hide from Player A")
-    : "Find the opponent";
+    : "🪙 Find the hidden gold";
 
   requestAnimationFrame(loop);
 }
@@ -1678,8 +1711,159 @@ function buildWorld(){
 
   createGoal();
 
+  createGold();
+
 }
 
+
+/* =========================================================
+   GOLD
+========================================================= */
+
+function getGoldCell(){
+
+  const open=[];
+
+  for(let r=1;r<ROWS-1;r++){
+    for(let c=1;c<COLS-1;c++){
+
+      if(maze[r][c] !== 0) continue;
+
+      const ds = [
+        Math.hypot(c-startCell.c,r-startCell.r),
+        Math.hypot(c-goalCell.c,r-goalCell.r)
+      ];
+
+      /* Keep the gold away from both ends so it is genuinely hidden. */
+      if(ds[0] < 8 || ds[1] < 8) continue;
+
+      open.push({r,c});
+    }
+  }
+
+  if(!open.length){
+    return {r:Math.floor(ROWS/2),c:Math.floor(COLS/2)};
+  }
+
+  /* The existing maze seed makes the gold location repeatable. */
+  return open[Math.floor(rnd()*open.length)];
+}
+
+function createGold(){
+
+  goldCell=getGoldCell();
+
+  goldObject=new THREE.Group();
+
+  goldObject.position.set(
+    cx(goldCell.c),
+    0,
+    cz(goldCell.r)
+  );
+
+  /* Small stone/grass cover makes the gold feel hidden. */
+  const base=new THREE.Mesh(
+    new THREE.CylinderGeometry(.42,.52,.10,10),
+    new THREE.MeshStandardMaterial({
+      color:0x3a3022,
+      roughness:1
+    })
+  );
+  base.position.y=.06;
+  base.receiveShadow=true;
+  goldObject.add(base);
+
+  const coinMat=new THREE.MeshStandardMaterial({
+    color:0xffd447,
+    metalness:.75,
+    roughness:.22,
+    emissive:0x8a5d08,
+    emissiveIntensity:.65
+  });
+
+  const coin=new THREE.Mesh(
+    new THREE.CylinderGeometry(.27,.27,.11,18),
+    coinMat
+  );
+  coin.rotation.z=Math.PI/2;
+  coin.position.y=.34;
+  coin.castShadow=true;
+  goldObject.add(coin);
+
+  const gem=new THREE.Mesh(
+    new THREE.OctahedronGeometry(.13),
+    new THREE.MeshStandardMaterial({
+      color:0xffef8a,
+      metalness:.7,
+      roughness:.18,
+      emissive:0xa87512,
+      emissiveIntensity:.8
+    })
+  );
+  gem.position.y=.58;
+  gem.castShadow=true;
+  goldObject.add(gem);
+
+  const light=new THREE.PointLight(0xffd34d,1.4,4.5);
+  light.position.y=.6;
+  goldObject.add(light);
+
+  scene.add(goldObject);
+
+}
+
+function updateGoldClue(){
+
+  if(!goldClue || !player || !goldObject || goldCollected){
+    if(goldClue) goldClue.style.display="none";
+    return;
+  }
+
+  const dx=goldObject.position.x-player.position.x;
+  const dz=goldObject.position.z-player.position.z;
+  const distance=Math.hypot(dx,dz);
+
+  if(distance < 1.35){
+    collectGold();
+    return;
+  }
+
+  goldClue.style.display="block";
+
+  const arrow=$("goldArrow");
+  if(arrow){
+    /*
+      With the existing top-down camera, +X is screen-right and
+      -Z is screen-up. atan2(dx,-dz) therefore points the arrow
+      toward the gold on screen.
+    */
+    const angle=Math.atan2(dx,-dz);
+    arrow.style.transform="rotate("+angle+"rad)";
+  }
+
+  if(distance < 5){
+    goldClue.firstChild.textContent="🪙 Gold is very close ";
+  }else{
+    goldClue.firstChild.textContent="🪙 Gold is available ";
+  }
+
+}
+
+function collectGold(){
+
+  if(goldCollected || !goldObject) return;
+
+  goldCollected=true;
+  goldObject.visible=false;
+  goldClue.style.display="none";
+
+  status.textContent="🏆 GOLD FOUND! You win!";
+  distanceEl.textContent="Gold collected";
+  visibility.textContent="WINNER";
+  visibility.style.color="#ffd75e";
+
+  gameOver=true;
+}
 
 /* =========================================================
    PLAYER
@@ -2518,6 +2702,7 @@ function loop(){
   updatePlayer(dt);
   updateHider(dt);
   updateHiderVisibility();
+  updateGoldClue();
 
   updateCamera(dt);
 
