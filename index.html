@@ -588,13 +588,12 @@ function init(){
   scene = new THREE.Scene();
 
   scene.background =
-    new THREE.Color(0x07100a);
+    new THREE.Color(0x87b98a);
 
-  scene.fog =
-    new THREE.FogExp2(
-      0x07100a,
-      0.018
-    );
+  scene.fog = new THREE.FogExp2(
+  0x87b98a,
+  0.006
+);
 
 
   /* -------------------------------------------------------
@@ -664,17 +663,17 @@ function init(){
 
   scene.add(
     new THREE.HemisphereLight(
-      0x6f8873,
-      0x101810,
-      0.55
+      0xffffff,
+      0x557755,
+      1.15
     )
   );
 
 
   const moon =
     new THREE.DirectionalLight(
-      0x9eafd0,
-      0.48
+      0xffffff,
+      1.2
     );
 
   moon.position.set(
@@ -866,7 +865,7 @@ function buildGround(){
         depth
       ),
       new THREE.MeshStandardMaterial({
-        color:0x304a31,
+        color:0x5f8058,
         roughness:1
       })
     );
@@ -891,7 +890,7 @@ function buildGround(){
         depth + 30
       ),
       new THREE.MeshStandardMaterial({
-        color:0x182a1b,
+        color:0x41613f,
         roughness:1
       })
     );
@@ -970,13 +969,13 @@ function buildPaths(){
 
   const pathMat =
     new THREE.MeshStandardMaterial({
-      color:0x344a36,
+      color:0x718b63,
       roughness:1
     });
 
   const dirtMat =
     new THREE.MeshStandardMaterial({
-      color:0x463a2d,
+      color:0x806b4c,
       roughness:1
     });
 
