@@ -249,7 +249,7 @@ canvas{
 
 <div id="start">
   <div class="card">
-    <h1>🌲 Blind Path</h1>
+    <h1>🌲 Gold</h1>
     <p>Hide & Seek in a dark 3D forest.</p>
     <div id="modeRow" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:12px 0">
       <button id="computerMode" type="button" class="modeBtn active">🤖 Computer</button>
@@ -276,7 +276,7 @@ canvas{
 <div id="hud">
   <div class="hudbar">
     <div class="hudbox">
-      <div class="title">🌲 BLIND PATH</div>
+      <div class="title">🌲 GOLD HUNT 3D</div>
       <div id="status">Find the opponent</div>
     </div>
     <div class="hudbox"><div id="distance">Opponent: ?</div><div id="visibility" style="font-size:11px;color:#b9c8bc;margin-top:2px">Hidden</div></div>
@@ -2507,10 +2507,6 @@ function shoot(){
   },450);
 }
 
-flashBtn.addEventListener("click",function(e){
-  e.preventDefault();
-  flash();
-});
 
 shootBtn.addEventListener("click",function(e){
   e.preventDefault();
