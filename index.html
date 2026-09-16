@@ -249,8 +249,8 @@ canvas{
 
 <div id="start">
   <div class="card">
-    <h1>🌲 Gold Hunt 3D</h1>
-    <p>Find the Gold in 3D forest.</p>
+    <h1>🪙 Gold Hunt 3D</h1>
+    <p>Multiplayer forest maze — find the hidden gold.</p>
     <div id="modeRow" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:12px 0">
       <button id="computerMode" type="button" class="modeBtn active">🤖 Computer</button>
       <button id="createMode" type="button" class="modeBtn">👥 Create Game</button>
@@ -260,7 +260,7 @@ canvas{
       <div id="createPinBox" style="display:none">
         <div style="font-size:12px;color:#b9c8bc;margin-bottom:5px">Your Game PIN</div>
         <div id="roomPinDisplay" style="font-size:30px;font-weight:900;letter-spacing:8px;padding:10px 16px;border-radius:12px;border:1px solid #44504a;background:#111712;color:#fff;display:inline-block;min-width:180px">------</div>
-        <div style="font-size:12px;color:#b9c8bc;margin-top:6px">Share this PIN with the other player</div>
+        <div style="font-size:12px;color:#b9c8bc;margin-top:6px">Share this PIN with other players</div>
       </div>
       <div id="joinPinBox" style="display:none">
         <div style="font-size:12px;color:#b9c8bc;margin-bottom:5px">Enter Game PIN</div>
@@ -276,7 +276,7 @@ canvas{
 <div id="hud">
   <div class="hudbar">
     <div class="hudbox">
-      <div class="title">🌲 GOLD HUNT 3D</div>
+      <div class="title">🪙 GOLD HUNT</div>
       <div id="status">Find the opponent</div>
     </div>
     <div class="hudbox"><div id="distance">Opponent: ?</div><div id="visibility" style="font-size:11px;color:#b9c8bc;margin-top:2px">Hidden</div></div>
@@ -317,7 +317,6 @@ const hud = $("hud");
 const status = $("status");
 const distanceEl = $("distance");
 const goldClue = $("goldClue");
-const flashBtn = $("flash");
 const shootBtn = $("shoot");
 const computerModeBtn = $("computerMode");
 const createModeBtn = $("createMode");
@@ -335,6 +334,9 @@ let supabaseClient = null;
 let networkChannel = null;
 let multiplayer = false;
 let role = "hunter";
+let playerId = "";
+let remotePlayers = new Map();
+let targetPlayerId = null;
 let roomCode = "";
 let networkReady = false;
 let opponentReady = false;
@@ -370,6 +372,7 @@ let goldCell = null;
 let goldCollected = false;
 let hider=null, hiderCell=null, hiderTarget=null, hiderMoveTimer=0;
 let hiderVisible=false, hiderFound=false, gameOver=false;
+let goldWinBroadcast=false;
 let flashActive=false;
 let flashUntil=0;
 let flashCooldownUntil=0;
@@ -455,51 +458,113 @@ function initRealtime(){
   supabaseClient = window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 }
 
+function makePlayerId(){
+  return Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
+}
+
+function hashText(text){
+  let h=2166136261;
+  for(let i=0;i<text.length;i++){ h ^= text.charCodeAt(i); h=Math.imul(h,16777619); }
+  return h>>>0;
+}
+
+function getMultiplayerSpawn(id){
+  const cells=[];
+  for(let r=1;r<ROWS-1;r++) for(let c=1;c<COLS-1;c++){
+    if(maze[r][c]!==0) continue;
+    const ds=Math.hypot(r-startCell.r,c-startCell.c);
+    const dg=Math.hypot(r-goalCell.r,c-goalCell.c);
+    if(ds>4 && dg>4) cells.push({r,c});
+  }
+  if(!cells.length) return {r:startCell.r,c:startCell.c};
+  return cells[hashText(id)%cells.length];
+}
+
+function createRemotePlayer(id){
+  if(!player || remotePlayers.has(id)) return remotePlayers.get(id);
+  const avatar=player.clone(true);
+  avatar.visible=true;
+  avatar.userData.playerId=id;
+  avatar.traverse(obj=>{
+    if(!obj.isMesh || !obj.material || !obj.material.color) return;
+    obj.material=obj.material.clone();
+    if(obj.position.y>1.7) obj.material.color.setHex(0xb97859);
+    else if(obj.position.y>0.75) obj.material.color.setHex(0x4b73b5);
+    else if(obj.position.y<0.7) obj.material.color.setHex(0x27303a);
+  });
+  const cell=getMultiplayerSpawn(id);
+  avatar.position.set(cx(cell.c),0,cz(cell.r));
+  scene.add(avatar);
+  const entry={id,object:avatar,lastSeen:performance.now(),active:true};
+  remotePlayers.set(id,entry);
+  return entry;
+}
+
+function removeRemotePlayer(id){
+  const entry=remotePlayers.get(id);
+  if(!entry) return;
+  scene.remove(entry.object);
+  remotePlayers.delete(id);
+  if(targetPlayerId===id) targetPlayerId=null;
+}
+
+function applyRemoteState(payload){
+  if(!payload || !payload.playerId || payload.playerId===playerId) return;
+  const entry=createRemotePlayer(payload.playerId);
+  if(Number.isFinite(Number(payload.x))) entry.object.position.x=Number(payload.x);
+  if(Number.isFinite(Number(payload.z))) entry.object.position.z=Number(payload.z);
+  if(Number.isFinite(Number(payload.ry))) entry.object.rotation.y=Number(payload.ry);
+  entry.active=payload.active!==false;
+  entry.object.visible=entry.active;
+  entry.lastSeen=performance.now();
+}
+
 async function setupMultiplayer(){
   initRealtime();
   if(!roomCode) throw new Error("Game code is required");
-
-  // The room code deterministically defines the maze seed.
-  // Both phones therefore build the exact same maze and exact same spawns.
+  playerId=makePlayerId();
   seed=seedFromRoomCode(roomCode);
 
   networkChannel = supabaseClient.channel("blind-path-"+roomCode,{
-    config:{broadcast:{self:false},presence:{key:role}}
+    config:{broadcast:{self:false},presence:{key:playerId}}
   });
 
-  networkChannel.on("broadcast",{event:"state"},({payload})=>{
-    if(!payload || !hider) return;
-    if(payload.role && payload.role===role) return;
-    if(Number.isFinite(Number(payload.x))) hider.position.x=Number(payload.x);
-    if(Number.isFinite(Number(payload.z))) hider.position.z=Number(payload.z);
-    if(Number.isFinite(Number(payload.ry))) hider.rotation.y=Number(payload.ry);
-    remoteStateReceived=true;
-  });
+  networkChannel.on("broadcast",{event:"state"},({payload})=>applyRemoteState(payload));
 
   networkChannel.on("broadcast",{event:"hit"},({payload})=>{
-    if(gameOver) return;
-    if(payload && payload.loserRole && payload.loserRole !== role && payload.shooterRole !== role) return;
-    hiderFound=true;
-    gameOver=true;
-    hider.visible=true;
-    shootBtn.style.display="none";
-    if(payload && payload.shooterRole===role){
-      status.textContent="🎯 HIT! You caught the opponent!";
-    }else{
+    if(!payload || !payload.targetId) return;
+    const target=remotePlayers.get(payload.targetId);
+    if(target){ target.active=false; target.object.visible=false; }
+    if(payload.targetId===playerId){
+      gameOver=true;
+      shootBtn.style.display="none";
       status.textContent="🎯 You were caught!";
+      distanceEl.textContent="You were caught";
+      visibility.textContent="CAUGHT";
+      visibility.style.color="#ff6b6b";
+    }else if(payload.shooterId===playerId){
+      status.textContent="🎯 HIT! Player caught!";
     }
-    distanceEl.textContent="Opponent caught";
-    visibility.textContent="CAUGHT";
-    visibility.style.color="#ff6b6b";
+  });
+
+  networkChannel.on("broadcast",{event:"gold"},({payload})=>{
+    if(!payload || payload.type!=="collected") return;
+    if(goldCollected) return;
+    goldCollected=true;
+    if(goldObject) goldObject.visible=false;
+    goldClue.style.display="none";
+    gameOver=true;
+    status.textContent=payload.playerId===playerId ? "🏆 GOLD FOUND! You win!" : "🏆 Gold found by another player!";
+    distanceEl.textContent="Gold collected";
+    visibility.textContent=payload.playerId===playerId ? "WINNER" : "GOLD FOUND";
+    visibility.style.color="#ffd75e";
   });
 
   await networkChannel.subscribe(async(statusText)=>{
     if(statusText === "SUBSCRIBED"){
       networkReady=true;
-      await networkChannel.track({role});
-      roomInfo.textContent = role === "hunter"
-        ? "Waiting for Player B to join… Code: "+roomCode
-        : "Connected to Player A — you are Player B";
+      await networkChannel.track({playerId});
+      roomInfo.textContent = "Connected — share PIN "+roomCode+" with other players";
     }
   });
 }
@@ -517,14 +582,14 @@ begin.addEventListener("click",async function(e){
     // PIN was generated by the app when Create Game was selected.
     if(!roomCode) roomCode = makeRoomCode();
     roomPinDisplay.textContent = roomCode;
-    role = "hunter";
+    role = "player";
   }else if(selectedMode === "join"){
     roomCode = roomCodeInput.value.trim();
     if(!/^\d{6}$/.test(roomCode)){
       roomInfo.textContent="Enter the 6-digit numeric PIN.";
       return;
     }
-    role = "hider";
+    role = "player";
   }else{
     role = "hunter";
   }
@@ -538,9 +603,9 @@ begin.addEventListener("click",async function(e){
   try{
     if(multiplayer) await setupMultiplayer();
     init();
-    if(multiplayer && role === "hunter") {
-      status.textContent="Waiting for Player B — Code: "+roomCode;
-      roomInfo.textContent="Share this code with Player B: "+roomCode;
+    if(multiplayer) {
+      status.textContent="Multiplayer ready — find the gold!";
+      roomInfo.textContent="Share this code with other players: "+roomCode;
     }
   }catch(err){
     console.error(err);
@@ -671,24 +736,16 @@ function init(){
   buildWorld();
 
   createPlayer();
-  createHider();
-
-  if(multiplayer){
-    // Explicit role-based local/remote spawn. Both devices use the same
-    // deterministic maze seed, so these positions are identical on both sides.
-    const localCell = role === "hunter" ? startCell : goalCell;
-    const remoteCell = role === "hunter" ? goalCell : startCell;
+  if(!multiplayer){
+    createHider();
+  }else{
+    const localCell=getMultiplayerSpawn(playerId);
     player.position.set(cx(localCell.c),0,cz(localCell.r));
-    hider.position.set(cx(remoteCell.c),0,cz(remoteCell.r));
-    hiderTarget=null;
-    hiderMoveTimer=999999;
   }
 
   updateCamera(1);
 
-  status.textContent = multiplayer
-    ? (role === "hunter" ? "Waiting for Player B — Code: "+roomCode : "Hide from Player A")
-    : "🪙 Find the hidden gold";
+  status.textContent = multiplayer ? "👥 Find the gold with the other players" : "🪙 Find the hidden gold";
 
   requestAnimationFrame(loop);
 }
@@ -1840,6 +1897,10 @@ function collectGold(){
   visibility.style.color="#ffd75e";
 
   gameOver=true;
+  if(multiplayer && networkChannel && networkReady && !goldWinBroadcast){
+    goldWinBroadcast=true;
+    networkChannel.send({type:"broadcast",event:"gold",payload:{type:"collected",playerId,timestamp:Date.now()}});
+  }
 }
 
 /* =========================================================
@@ -2113,67 +2174,53 @@ function clearLineOfSight(ax,az,bx,bz,maxDistance=12){
 }
 
 function updateHiderVisibility(){
+  if(!player || hiderFound) return;
 
-  if(!player || !hider || hiderFound) return;
-
-  const now=performance.now();
-
-  if(flashActive && now>=flashUntil){
-    flashActive=false;
+  if(!multiplayer){
+    if(!hider) return;
+    const distance=Math.hypot(hider.position.x-player.position.x,hider.position.z-player.position.z);
+    const visible=clearLineOfSight(player.position.x,player.position.z,hider.position.x,hider.position.z,NORMAL_VISION);
+    hiderVisible=visible;
+    hider.visible=visible;
+    const ready=visible && distance<=16 && canShoot();
+    shootBtn.style.display=ready?"block":"none";
+    if(ready){ visibility.textContent="🎯 SHOOT"; visibility.style.color="#ff6b6b"; distanceEl.textContent="Opponent: "+Math.max(1,Math.round(distance/2))+" m"; }
+    else { visibility.textContent=visible?"👁️ VISIBLE":"Hidden"; visibility.style.color=visible?"#f4d66d":"#b9c8bc"; distanceEl.textContent=visible?"Opponent: "+Math.max(1,Math.round(distance/2))+" m":"Opponent: ?"; }
+    return;
   }
 
-  const distance=Math.hypot(
-    hider.position.x-player.position.x,
-    hider.position.z-player.position.z
-  );
-
-  const range=flashActive ? FLASH_VISION : NORMAL_VISION;
-
-  const visible=clearLineOfSight(
-    player.position.x,
-    player.position.z,
-    hider.position.x,
-    hider.position.z,
-    range
-  );
-
-  hiderVisible=visible;
-  hider.visible=visible;
-
-  const ready=(visible && distance<=16 && canShoot());
-
-  if(ready){
-    shootBtn.style.display="block";
-    shootBtn.classList.add("ready");
-    visibility.textContent=flashActive ? "🎯 AIM READY" : "🎯 SHOOT";
-    visibility.style.color="#ff6b6b";
-    distanceEl.textContent="Opponent: "+Math.max(1,Math.round(distance/2))+" m";
+  let best=null;
+  for(const entry of remotePlayers.values()){
+    if(!entry.active) continue;
+    const dx=entry.object.position.x-player.position.x;
+    const dz=entry.object.position.z-player.position.z;
+    const distance=Math.hypot(dx,dz);
+    const visible=clearLineOfSight(player.position.x,player.position.z,entry.object.position.x,entry.object.position.z,16);
+    entry.object.visible=visible;
+    if(visible && (!best || distance<best.distance)) best={entry,distance};
+  }
+  targetPlayerId=best?best.entry.id:null;
+  hider=best?best.entry.object:null;
+  const ready=!!best && canShoot();
+  shootBtn.style.display=ready?"block":"none";
+  shootBtn.classList.toggle("ready",ready);
+  if(best){
+    visibility.textContent=ready?"🎯 SHOOT":"👁️ VISIBLE";
+    visibility.style.color=ready?"#ff6b6b":"#f4d66d";
+    distanceEl.textContent="Player: "+Math.max(1,Math.round(best.distance/2))+" m";
+    if(performance.now()-best.entry.lastSeen>3000) removeRemotePlayer(best.entry.id);
   }else{
-    shootBtn.style.display="none";
-    shootBtn.classList.remove("ready");
+    visibility.textContent="Searching";
+    visibility.style.color="#b9c8bc";
+    distanceEl.textContent="Players: "+remotePlayers.size;
+    status.textContent="👥 Find another player — first to find the gold wins";
+  }
 
-    if(visible){
-      visibility.textContent=flashActive ? "🔦 VISIBLE" : "👁️ VISIBLE";
-      visibility.style.color=flashActive ? "#f3d15b" : "#f4d66d";
-      distanceEl.textContent="Opponent: "+Math.max(1,Math.round(distance/2))+" m";
-
-      if(now>=hazardMessageUntil){
-        status.textContent=multiplayer
-          ? (distance<5 ? "⚠️ Opponent nearby!" : "👁️ Opponent visible — get into position")
-          : (distance<5 ? "⚠️ Opponent nearby!" : "You can see the opponent — get into position");
-      }
-    }else{
-      visibility.textContent="Hidden";
-      visibility.style.color="#b9c8bc";
-      distanceEl.textContent="Opponent: ?";
-      if(now>=hazardMessageUntil){
-        status.textContent=multiplayer
-          ? (flashActive ? "🔦 Search for your opponent..." : "Find your opponent")
-          : (flashActive ? "🔦 Search the forest..." : "Find the opponent");
-      }
-    }
+  for(const [id,entry] of remotePlayers){
+    if(performance.now()-entry.lastSeen>6000) removeRemotePlayer(id);
   }
 }
+
 function chooseHiderMove(initial=false){
   if(!hider||gameOver) return;
   const base=cellFromWorld(hider.position.x,hider.position.z),dirs=[[0,1],[0,-1],[1,0],[-1,0]],options=[];
@@ -2460,51 +2507,41 @@ function canShoot(){
 }
 
 function shoot(){
-
   if(!player || gameOver) return;
   if(multiplayer && !networkReady) return;
-
   const now=performance.now();
-
   if(now < shotCooldownUntil){
-    const remaining=Math.ceil((shotCooldownUntil-now)/1000);
-    status.textContent="🎯 Shot reloading... "+remaining+"s";
+    status.textContent="🎯 Shot reloading... "+Math.ceil((shotCooldownUntil-now)/1000)+"s";
     return;
   }
-
-  if(!canShoot()){
-    status.textContent="🎯 No clear shot — face the opponent";
+  if(!targetPlayerId || !canShoot()){
+    status.textContent="🎯 No clear shot — face the player";
     shotCooldownUntil=now+900;
     return;
   }
-
   shotCount++;
-
-  hiderFound=true;
-  gameOver=true;
-  hider.visible=true;
-  if(multiplayer && networkChannel) networkChannel.send({
-    type:"broadcast",
-    event:"hit",
-    payload:{shooterRole:role,loserRole:(role === "hunter" ? "hider" : "hunter"),timestamp:Date.now()}
-  });
-
-  status.textContent="🎯 HIT! You caught the opponent!";
-  distanceEl.textContent="Opponent caught";
+  const targetId=targetPlayerId;
+  const target=remotePlayers.get(targetId);
+  if(target){ target.active=false; target.object.visible=false; }
+  if(multiplayer && networkChannel){
+    networkChannel.send({type:"broadcast",event:"hit",payload:{shooterId:playerId,targetId,timestamp:Date.now()}});
+    status.textContent="🎯 HIT! Player caught!";
+  }else{
+    hiderFound=true;
+    gameOver=true;
+    if(hider) hider.visible=true;
+    status.textContent="🎯 HIT! You caught the opponent!";
+  }
+  distanceEl.textContent="Player caught";
   visibility.textContent="CAUGHT";
   visibility.style.color="#ff6b6b";
-
   shootBtn.classList.remove("ready");
   shootBtn.style.display="none";
-
-  /* Small hit flash */
   const hitLight=new THREE.PointLight(0xff4444,28,10,2);
-  hitLight.position.set(hider.position.x,2,hider.position.z);
+  if(target) hitLight.position.copy(target.object.position);
+  else if(hider) hitLight.position.copy(hider.position);
   scene.add(hitLight);
-
-  setTimeout(function(){
-    scene.remove(hitLight);
-  },450);
+  setTimeout(()=>scene.remove(hitLight),450);
 }
 
 
@@ -2695,7 +2732,7 @@ function loop(){
 
   if(multiplayer && networkChannel && player && performance.now()-lastNetworkSend>50){
     lastNetworkSend=performance.now();
-    networkChannel.send({type:"broadcast",event:"state",payload:{role:role,x:player.position.x,z:player.position.z,ry:player.rotation.y}});
+    networkChannel.send({type:"broadcast",event:"state",payload:{playerId,x:player.position.x,z:player.position.z,ry:player.rotation.y,active:!gameOver}});
   }
 
   renderer.render(
