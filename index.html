@@ -289,7 +289,11 @@ canvas{
 <div id="hint">WASD / Arrow Keys · 🕳️ Avoid potholes · 🔦 Flash</div>
 
 <!-- Keep your local Three.js file -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+function generateGamePin(){
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+</script>
 <script src="js/three.min.js"></script>
 
 <script>
