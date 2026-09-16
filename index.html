@@ -289,11 +289,7 @@ canvas{
 <div id="hint">WASD / Arrow Keys · 🕳️ Avoid potholes · 🔦 Flash</div>
 
 <!-- Keep your local Three.js file -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
-function generateGamePin(){
-  return String(Math.floor(100000 + Math.random() * 900000));
-}
-</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/three.min.js"></script>
 
 <script>
@@ -429,10 +425,7 @@ createModeBtn.addEventListener("click",()=>setMode("create"));
 joinModeBtn.addEventListener("click",()=>setMode("join"));
 
 function makeRoomCode(){
-  const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let out="";
-  for(let i=0;i<6;i++) out+=chars[Math.floor(Math.random()*chars.length)];
-  return out;
+  return String(Math.floor(100000 + Math.random() * 900000));
 }
 
 function seedFromRoomCode(code){
@@ -514,8 +507,11 @@ begin.addEventListener("click",async function(e){
     roomPinDisplay.textContent = roomCode;
     role = "hunter";
   }else if(selectedMode === "join"){
-    roomCode = roomCodeInput.value.trim().toUpperCase();
-    if(roomCode.length !== 6){ roomInfo.textContent="Enter the 6-character game code."; return; }
+    roomCode = roomCodeInput.value.trim();
+    if(!/^\d{6}$/.test(roomCode)){
+      roomInfo.textContent="Enter the 6-digit numeric PIN.";
+      return;
+    }
     role = "hider";
   }else{
     role = "hunter";
