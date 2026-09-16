@@ -153,32 +153,6 @@ canvas{
   transform-origin:50% 50%;
 }
 
-/* ---------- Flash ---------- */
-
-#flash{
-  position:fixed;
-  right:18px;
-  bottom:22px;
-  z-index:25;
-  display:none;
-  width:68px;
-  height:68px;
-  padding:0;
-  border:3px solid #fff;
-  border-radius:50%;
-  background:#f3d15b;
-  color:#171207;
-  font-size:27px;
-  box-shadow:
-    0 0 0 2px #171207,
-    0 8px 28px #0009,
-    0 0 35px #f3d15b66;
-  cursor:pointer;
-}
-
-#flash:active{
-  transform:scale(.93);
-}
 
 /* ---------- Mobile controls ---------- */
 
@@ -311,7 +285,6 @@ canvas{
 
 <div id="goldClue">🪙 GOLD <span id="goldArrow">⬆</span></div>
 
-<button id="flash" type="button">🔦</button>
 <button id="shoot" type="button">🎯</button>
 
 <div id="controls">
@@ -321,7 +294,7 @@ canvas{
   <button class="ctrl" id="down" type="button">▼</button>
 </div>
 
-<div id="hint">WASD / Arrow Keys · 🕳️ Avoid potholes · 🔦 Flash</div>
+<div id="hint">WASD / Arrow Keys · 🕳️ Avoid potholes ·</div>
 
 <!-- Keep your local Three.js file -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -510,7 +483,6 @@ async function setupMultiplayer(){
     gameOver=true;
     hider.visible=true;
     shootBtn.style.display="none";
-    flashBtn.style.display="block";
     if(payload && payload.shooterRole===role){
       status.textContent="🎯 HIT! You caught the opponent!";
     }else{
@@ -560,7 +532,6 @@ begin.addEventListener("click",async function(e){
   started=true;
   start.classList.add("hidden");
   hud.style.display="block";
-  flashBtn.style.display="block";
   shootBtn.style.display="none";
   status.textContent=multiplayer ? "Connecting to game…" : "Building forest…";
 
