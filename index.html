@@ -280,12 +280,13 @@ canvas{
       <div id="status">Find the opponent</div>
     </div>
     <div class="hudbox"><div id="distance">Opponent: ?</div><div id="visibility" style="font-size:11px;color:#b9c8bc;margin-top:2px">Hidden</div></div>
+    <div class="hudbox" id="ammoBox"><div id="ammo">🔫 Bullets: 5</div><div id="playerCount" style="font-size:11px;color:#b9c8bc;margin-top:2px">Players: 1</div></div>
   </div>
 </div>
 
 <div id="goldClue">🪙 GOLD <span id="goldArrow">⬆</span></div>
 
-<button id="shoot" type="button">🎯</button>
+<button id="shoot" type="button">🔫 5</button>
 
 <div id="controls">
   <button class="ctrl" id="up" type="button">▲</button>
@@ -294,7 +295,7 @@ canvas{
   <button class="ctrl" id="down" type="button">▼</button>
 </div>
 
-<div id="hint">WASD / Arrow Keys · 🕳️ Avoid potholes ·</div>
+<div id="hint">WASD / Arrow Keys · 🔫 Shoot anytime · 🕳️ Avoid potholes ·</div>
 
 <!-- Keep your local Three.js file -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -318,6 +319,8 @@ const status = $("status");
 const distanceEl = $("distance");
 const goldClue = $("goldClue");
 const shootBtn = $("shoot");
+const ammoEl = $("ammo");
+const playerCountEl = $("playerCount");
 const computerModeBtn = $("computerMode");
 const createModeBtn = $("createMode");
 const joinModeBtn = $("joinMode");
@@ -378,6 +381,9 @@ let flashUntil=0;
 let flashCooldownUntil=0;
 let shotCooldownUntil=0;
 let shotCount=0;
+let playerCount=1;
+let maxBullets=5;
+let bullets=5;
 
 const FLASH_DURATION=5000;
 const FLASH_COOLDOWN=8000;
@@ -388,6 +394,42 @@ let hazardMessageUntil=0;
 const visibility=$("visibility");
 
 let seed = 734921;
+
+function updateAmmoDisplay(){
+  if(ammoEl) ammoEl.textContent = "🔫 Bullets: "+bullets;
+  if(playerCountEl) playerCountEl.textContent = "Players: "+playerCount;
+  if(shootBtn){
+    shootBtn.textContent = "🔫 "+bullets;
+    shootBtn.style.display = (player && !gameOver && bullets>0) ? "block" : "none";
+  }
+}
+
+function setPlayerCount(count){
+  count=Math.max(1,Number(count)||1);
+  const previous=playerCount;
+  playerCount=count;
+
+  if(!multiplayer){
+    maxBullets=5;
+    bullets=Math.min(5,Math.max(0,bullets));
+  }else{
+    // Every joined player contributes one bullet. New players add a bullet;
+    // already-spent bullets are not restored when someone leaves.
+    if(count>previous){
+      bullets += count-previous;
+    }
+    maxBullets=Math.max(maxBullets,count);
+    bullets=Math.min(bullets,maxBullets);
+  }
+  updateAmmoDisplay();
+}
+
+function resetAmmoForMode(){
+  playerCount=1;
+  maxBullets=multiplayer ? 1 : 5;
+  bullets=maxBullets;
+  updateAmmoDisplay();
+}
 
 function rnd(){
   seed = (seed * 1664525 + 1013904223) >>> 0;
@@ -412,6 +454,7 @@ let selectedMode = "computer";
 function setMode(mode){
   selectedMode = mode;
   multiplayer = mode !== "computer";
+  resetAmmoForMode();
   [computerModeBtn,createModeBtn,joinModeBtn].forEach(b=>b.classList.remove("active"));
   if(mode === "computer") computerModeBtn.classList.add("active");
   if(mode === "create") createModeBtn.classList.add("active");
@@ -529,6 +572,15 @@ async function setupMultiplayer(){
     config:{broadcast:{self:false},presence:{key:playerId}}
   });
 
+  function refreshRoomPlayers(){
+    if(!networkChannel) return;
+    const state=networkChannel.presenceState();
+    setPlayerCount(Object.keys(state).length);
+  }
+
+  networkChannel.on("presence",{event:"sync"},refreshRoomPlayers);
+  networkChannel.on("presence",{event:"join"},refreshRoomPlayers);
+  networkChannel.on("presence",{event:"leave"},refreshRoomPlayers);
   networkChannel.on("broadcast",{event:"state"},({payload})=>applyRemoteState(payload));
 
   networkChannel.on("broadcast",{event:"hit"},({payload})=>{
@@ -564,6 +616,7 @@ async function setupMultiplayer(){
     if(statusText === "SUBSCRIBED"){
       networkReady=true;
       await networkChannel.track({playerId});
+      refreshRoomPlayers();
       roomInfo.textContent = "Connected — share PIN "+roomCode+" with other players";
     }
   });
@@ -744,6 +797,7 @@ function init(){
   }
 
   updateCamera(1);
+  updateAmmoDisplay();
 
   status.textContent = multiplayer ? "👥 Find the gold with the other players" : "🪙 Find the hidden gold";
 
@@ -2176,20 +2230,31 @@ function clearLineOfSight(ax,az,bx,bz,maxDistance=12){
 function updateHiderVisibility(){
   if(!player || hiderFound) return;
 
+  let best=null;
+
   if(!multiplayer){
     if(!hider) return;
     const distance=Math.hypot(hider.position.x-player.position.x,hider.position.z-player.position.z);
     const visible=clearLineOfSight(player.position.x,player.position.z,hider.position.x,hider.position.z,NORMAL_VISION);
     hiderVisible=visible;
     hider.visible=visible;
-    const ready=visible && distance<=16 && canShoot();
-    shootBtn.style.display=ready?"block":"none";
-    if(ready){ visibility.textContent="🎯 SHOOT"; visibility.style.color="#ff6b6b"; distanceEl.textContent="Opponent: "+Math.max(1,Math.round(distance/2))+" m"; }
-    else { visibility.textContent=visible?"👁️ VISIBLE":"Hidden"; visibility.style.color=visible?"#f4d66d":"#b9c8bc"; distanceEl.textContent=visible?"Opponent: "+Math.max(1,Math.round(distance/2))+" m":"Opponent: ?"; }
+    if(visible && distance<=16) best={entry:{id:"computer",object:hider,active:true},distance};
+
+    shootBtn.classList.toggle("ready",!!best && canShoot());
+    shootBtn.style.display=(bullets>0 && !gameOver)?"block":"none";
+    if(best){
+      visibility.textContent=canShoot()?"🎯 AIM ON TARGET":"👁️ VISIBLE";
+      visibility.style.color=canShoot()?"#ff6b6b":"#f4d66d";
+      distanceEl.textContent="Opponent: "+Math.max(1,Math.round(distance/2))+" m";
+    }else{
+      visibility.textContent=visible?"👁️ VISIBLE":"Hidden";
+      visibility.style.color=visible?"#f4d66d":"#b9c8bc";
+      distanceEl.textContent=visible?"Opponent: "+Math.max(1,Math.round(distance/2))+" m":"Opponent: ?";
+    }
+    updateAmmoDisplay();
     return;
   }
 
-  let best=null;
   for(const entry of remotePlayers.values()){
     if(!entry.active) continue;
     const dx=entry.object.position.x-player.position.x;
@@ -2199,244 +2264,28 @@ function updateHiderVisibility(){
     entry.object.visible=visible;
     if(visible && (!best || distance<best.distance)) best={entry,distance};
   }
+
   targetPlayerId=best?best.entry.id:null;
   hider=best?best.entry.object:null;
   const ready=!!best && canShoot();
-  shootBtn.style.display=ready?"block":"none";
   shootBtn.classList.toggle("ready",ready);
+  shootBtn.style.display=(bullets>0 && !gameOver)?"block":"none";
+
   if(best){
-    visibility.textContent=ready?"🎯 SHOOT":"👁️ VISIBLE";
+    visibility.textContent=ready?"🎯 AIM ON TARGET":"👁️ VISIBLE";
     visibility.style.color=ready?"#ff6b6b":"#f4d66d";
     distanceEl.textContent="Player: "+Math.max(1,Math.round(best.distance/2))+" m";
-    if(performance.now()-best.entry.lastSeen>3000) removeRemotePlayer(best.entry.id);
   }else{
     visibility.textContent="Searching";
     visibility.style.color="#b9c8bc";
     distanceEl.textContent="Players: "+remotePlayers.size;
-    status.textContent="👥 Find another player — first to find the gold wins";
   }
 
   for(const [id,entry] of remotePlayers){
     if(performance.now()-entry.lastSeen>6000) removeRemotePlayer(id);
   }
+  updateAmmoDisplay();
 }
-
-function chooseHiderMove(initial=false){
-  if(!hider||gameOver) return;
-  const base=cellFromWorld(hider.position.x,hider.position.z),dirs=[[0,1],[0,-1],[1,0],[-1,0]],options=[];
-  for(const d of dirs){const r=base.r+d[0],c=base.c+d[1];if(r>0&&r<ROWS-1&&c>0&&c<COLS-1&&maze[r][c]===0) options.push({r,c});}
-  if(!options.length) return;
-  const hc=cellFromWorld(player.position.x,player.position.z),seen=clearLineOfSight(player.position.x,player.position.z,hider.position.x,hider.position.z);
-  let best=options[Math.floor(rnd()*options.length)];
-  if(seen||Math.hypot(hc.r-base.r,hc.c-base.c)<6){
-    let bs=-Infinity;
-    for(const o of options){const away=Math.hypot(o.r-hc.r,o.c-hc.c),edge=(o.r===1||o.r===ROWS-2||o.c===1||o.c===COLS-2)?-1.2:0,score=away*2.5+edge+rnd()*2.2;if(score>bs){bs=score;best=o;}}
-  }
-  hiderTarget={x:cx(best.c),z:cz(best.r)}; hiderCell=best; hiderMoveTimer=initial?0:1.1+rnd()*1.4;
-}
-
-function updateHider(dt){
-  if(!hider||gameOver||hiderFound) return;
-  if(multiplayer) return;
-  hiderMoveTimer-=dt;
-  if(!hiderTarget||hiderMoveTimer<=0) chooseHiderMove();
-  if(!hiderTarget) return;
-  const dx=hiderTarget.x-hider.position.x,dz=hiderTarget.z-hider.position.z,d=Math.hypot(dx,dz);
-  if(d<.08){hider.position.x=hiderTarget.x;hider.position.z=hiderTarget.z;chooseHiderMove();return;}
-  const hiderOnPothole=getPotholeAt(hider.position.x,hider.position.z);
-  const speed=hiderOnPothole?1.2:2.35;
-  hider.position.x+=dx/d*speed*dt; hider.position.z+=dz/d*speed*dt;
-  const target=Math.atan2(dx,dz); let diff=target-hider.rotation.y; while(diff>Math.PI)diff-=Math.PI*2; while(diff<-Math.PI)diff+=Math.PI*2; hider.rotation.y+=diff*Math.min(1,dt*8);
-}
-
-function openCell(x,z){
-
-  const margin = .38;
-
-  const samples = [
-    [-margin,-margin],
-    [ margin,-margin],
-    [-margin, margin],
-    [ margin, margin]
-  ];
-
-
-  for(const [sx,sz] of samples){
-
-    const c =
-      Math.round(
-        (x+sx)/CELL +
-        (COLS-1)/2
-      );
-
-    const r =
-      Math.round(
-        (z+sz)/CELL +
-        (ROWS-1)/2
-      );
-
-
-    if(
-      r < 0 ||
-      r >= ROWS ||
-      c < 0 ||
-      c >= COLS
-    ){
-
-      return false;
-
-    }
-
-
-    if(maze[r][c] !== 0){
-
-      return false;
-
-    }
-
-  }
-
-
-  return true;
-
-}
-
-
-/* =========================================================
-   PLAYER MOVEMENT
-========================================================= */
-
-function updateCamera(dt){
-  if(!camera || !player) return;
-
-  // Keep the camera above the hunter while preserving the 3/4 view.
-  const targetX = player.position.x;
-  const targetZ = player.position.z;
-  const smooth = Math.min(1, dt * 6);
-
-  camera.position.x += (targetX - camera.position.x) * smooth;
-  camera.position.z += ((targetZ + 13) - camera.position.z) * smooth;
-  camera.position.y = 38;
-  camera.lookAt(targetX, 0, targetZ);
-}
-
-function updatePlayer(dt){
-
-  if(!player || gameOver)
-    return;
-
-  // In multiplayer, movement is allowed as soon as the realtime channel
-  // is connected. The round-start signal controls gameplay state, not input.
-
-
-  let x =
-    (keys.d || keys.arrowright ? 1 : 0) -
-    (keys.a || keys.arrowleft ? 1 : 0);
-
-  let z =
-    (keys.s || keys.arrowdown ? 1 : 0) -
-    (keys.w || keys.arrowup ? 1 : 0);
-
-
-  if(!x && !z)
-    return;
-
-
-  const length =
-    Math.hypot(x,z);
-
-
-  x /= length;
-  z /= length;
-
-
-  const onPothole=getPotholeAt(player.position.x,player.position.z);
-  const speed=onPothole ? 1.65 : 4.5;
-
-  if(onPothole){
-    hazardMessageUntil=performance.now()+700;
-  }
-
-  const nx =
-    player.position.x +
-    x*speed*dt;
-
-  const nz =
-    player.position.z +
-    z*speed*dt;
-
-
-  /* Wall collision */
-
-  if(
-    openCell(
-      nx,
-      player.position.z
-    )
-  ){
-
-    player.position.x = nx;
-
-  }
-
-
-  if(
-    openCell(
-      player.position.x,
-      nz
-    )
-  ){
-
-    player.position.z = nz;
-
-  }
-
-
-  /* Face movement */
-
-  const target =
-    Math.atan2(x,z);
-
-  let diff =
-    target -
-    player.rotation.y;
-
-
-  while(diff > Math.PI)
-    diff -= Math.PI*2;
-
-  while(diff < -Math.PI)
-    diff += Math.PI*2;
-
-
-  player.rotation.y +=
-    diff *
-    Math.min(
-      1,
-      dt*10
-    );
-
-
-  checkGoal();
-
-}
-
-
-/* =========================================================
-   GOAL CHECK
-========================================================= */
-
-function checkGoal(){
-  if(!player || !goalObject || gameOver) return;
-  const d=Math.hypot(player.position.x-goalObject.position.x, player.position.z-goalObject.position.z);
-  if(d < 1.4){
-    status.textContent="🏁 You reached the exit";
-  }
-}
-
-/* =========================================================
-   FLASH + SHOOT
-========================================================= */
 
 function flash(){
 
@@ -2476,9 +2325,6 @@ function canShoot(){
 
   if(!player || !hider || hiderFound || gameOver) return false;
 
-  const now=performance.now();
-  if(now < shotCooldownUntil) return false;
-
   const dx=hider.position.x-player.position.x;
   const dz=hider.position.z-player.position.z;
   const distance=Math.hypot(dx,dz);
@@ -2509,22 +2355,37 @@ function canShoot(){
 function shoot(){
   if(!player || gameOver) return;
   if(multiplayer && !networkReady) return;
-  const now=performance.now();
-  if(now < shotCooldownUntil){
-    status.textContent="🎯 Shot reloading... "+Math.ceil((shotCooldownUntil-now)/1000)+"s";
+  if(bullets<=0){
+    status.textContent="🔫 Out of bullets!";
+    updateAmmoDisplay();
     return;
   }
-  if(!targetPlayerId || !canShoot()){
-    status.textContent="🎯 No clear shot — face the player";
-    shotCooldownUntil=now+900;
-    return;
-  }
+
+  // Every trigger pull consumes one bullet, even if nobody is in sight.
+  bullets--;
   shotCount++;
+  shotCooldownUntil=performance.now()+350;
+  updateAmmoDisplay();
+
+  if(!targetPlayerId || !canShoot()){
+    status.textContent="💥 Shot fired — missed!";
+    shootBtn.classList.remove("ready");
+    return;
+  }
+
   const targetId=targetPlayerId;
   const target=remotePlayers.get(targetId);
-  if(target){ target.active=false; target.object.visible=false; }
+  if(target){
+    target.active=false;
+    target.object.visible=false;
+  }
+
   if(multiplayer && networkChannel){
-    networkChannel.send({type:"broadcast",event:"hit",payload:{shooterId:playerId,targetId,timestamp:Date.now()}});
+    networkChannel.send({
+      type:"broadcast",
+      event:"hit",
+      payload:{shooterId:playerId,targetId,timestamp:Date.now()}
+    });
     status.textContent="🎯 HIT! Player caught!";
   }else{
     hiderFound=true;
@@ -2532,18 +2393,19 @@ function shoot(){
     if(hider) hider.visible=true;
     status.textContent="🎯 HIT! You caught the opponent!";
   }
+
   distanceEl.textContent="Player caught";
   visibility.textContent="CAUGHT";
   visibility.style.color="#ff6b6b";
   shootBtn.classList.remove("ready");
-  shootBtn.style.display="none";
+  updateAmmoDisplay();
+
   const hitLight=new THREE.PointLight(0xff4444,28,10,2);
   if(target) hitLight.position.copy(target.object.position);
   else if(hider) hitLight.position.copy(hider.position);
   scene.add(hitLight);
   setTimeout(()=>scene.remove(hitLight),450);
 }
-
 
 shootBtn.addEventListener("click",function(e){
   e.preventDefault();
