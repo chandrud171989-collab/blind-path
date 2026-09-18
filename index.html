@@ -77,6 +77,11 @@ canvas{
   cursor:pointer;
 }
 
+#begin:disabled{
+  opacity:.6;
+  cursor:wait;
+}
+
 /* ---------- HUD ---------- */
 
 #hud{
@@ -152,7 +157,6 @@ canvas{
   text-shadow:0 0 10px #ffd447aa,0 2px 4px #000;
   transform-origin:50% 50%;
 }
-
 
 /* ---------- Mobile controls ---------- */
 
@@ -236,10 +240,28 @@ canvas{
 #shoot:active{transform:scale(.93)}
 #shoot.ready{animation:shootPulse 1s infinite}
 @keyframes shootPulse{50%{box-shadow:0 0 0 2px #171207,0 8px 28px #0009,0 0 45px #ff5757}}
+
+#flashBtn{
+  position:fixed;
+  right:18px;
+  bottom:28px;
+  z-index:25;
+  display:none;
+  width:62px;
+  height:62px;
+  padding:0;
+  border:2px solid #f0e2a8;
+  border-radius:50%;
+  background:#1d2a1f;
+  color:#ffe58a;
+  font-size:24px;
+  cursor:pointer;
+}
+#flashBtn:active{transform:scale(.93)}
+
 .modeBtn{border:1px solid #46534a;background:#182019;color:#cfd9d0;border-radius:10px;padding:9px 12px;font-weight:800;cursor:pointer}
 .modeBtn.active{background:#234238;border-color:#2dd4bf;color:#fff}
-@media(max-width:700px){#shoot{right:18px;bottom:104px}}
-
+@media(max-width:700px){#shoot{right:96px;bottom:104px}#flashBtn{right:18px;bottom:114px}}
 </style>
 </head>
 
@@ -250,7 +272,7 @@ canvas{
 <div id="start">
   <div class="card">
     <h1>🪙 Gold Hunt 3D</h1>
-    <p>Multiplayer forest maze — find the hidden gold.</p>
+    <p>Forest maze. Find the hidden gold before anyone else does.</p>
     <div id="modeRow" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:12px 0">
       <button id="computerMode" type="button" class="modeBtn active">🤖 Computer</button>
       <button id="createMode" type="button" class="modeBtn">👥 Create Game</button>
@@ -258,18 +280,18 @@ canvas{
     </div>
     <div id="roomPanel" style="display:none;margin:10px 0">
       <div id="createPinBox" style="display:none">
-        <div style="font-size:12px;color:#b9c8bc;margin-bottom:5px">Your Game PIN</div>
+        <div style="font-size:12px;color:#b9c8bc;margin-bottom:5px">Your game PIN</div>
         <div id="roomPinDisplay" style="font-size:30px;font-weight:900;letter-spacing:8px;padding:10px 16px;border-radius:12px;border:1px solid #44504a;background:#111712;color:#fff;display:inline-block;min-width:180px">------</div>
         <div style="font-size:12px;color:#b9c8bc;margin-top:6px">Share this PIN with other players</div>
       </div>
       <div id="joinPinBox" style="display:none">
-        <div style="font-size:12px;color:#b9c8bc;margin-bottom:5px">Enter Game PIN</div>
-        <input id="roomCode" maxlength="6" inputmode="numeric" placeholder="6-digit PIN" autocomplete="off" style="width:150px;text-align:center;text-transform:uppercase;padding:11px;border-radius:10px;border:1px solid #44504a;background:#111712;color:#fff;font-weight:800;letter-spacing:3px">
+        <div style="font-size:12px;color:#b9c8bc;margin-bottom:5px">Enter game PIN</div>
+        <input id="roomCode" maxlength="6" inputmode="numeric" placeholder="6-digit PIN" autocomplete="off" style="width:150px;text-align:center;padding:11px;border-radius:10px;border:1px solid #44504a;background:#111712;color:#fff;font-weight:800;letter-spacing:3px">
       </div>
       <div id="roomInfo" style="margin-top:8px;font-size:13px;color:#b9c8bc"></div>
     </div>
-    <p>Use <b>WASD</b>, arrow keys, or the controls on mobile.</p>
-    <button id="begin" type="button">Enter the Forest</button>
+    <p>Move with <b>WASD</b>, arrow keys, or the on-screen pad. Press <b>F</b> for a flash.</p>
+    <button id="begin" type="button">Enter the forest</button>
   </div>
 </div>
 
@@ -277,7 +299,7 @@ canvas{
   <div class="hudbar">
     <div class="hudbox">
       <div class="title">🪙 GOLD HUNT</div>
-      <div id="status">Find the opponent</div>
+      <div id="status">Find the hidden gold</div>
     </div>
     <div class="hudbox"><div id="distance">Opponent: ?</div><div id="visibility" style="font-size:11px;color:#b9c8bc;margin-top:2px">Hidden</div></div>
     <div class="hudbox" id="ammoBox"><div id="ammo">🔫 Bullets: 5</div><div id="playerCount" style="font-size:11px;color:#b9c8bc;margin-top:2px">Players: 1</div></div>
@@ -287,6 +309,7 @@ canvas{
 <div id="goldClue">🪙 GOLD <span id="goldArrow">⬆</span></div>
 
 <button id="shoot" type="button">🔫 5</button>
+<button id="flashBtn" type="button">🔦</button>
 
 <div id="controls">
   <button class="ctrl" id="up" type="button">▲</button>
@@ -295,9 +318,8 @@ canvas{
   <button class="ctrl" id="down" type="button">▼</button>
 </div>
 
-<div id="hint">WASD / Arrow Keys · 🔫 Shoot anytime · 🕳️ Avoid potholes ·</div>
+<div id="hint">WASD / Arrow keys · F flash · Click 🔫 to shoot · Avoid potholes</div>
 
-<!-- Keep your local Three.js file -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 
@@ -315,10 +337,13 @@ const start = $("start");
 const begin = $("begin");
 const game = $("game");
 const hud = $("hud");
-const status = $("status");
+const statusEl = $("status");
 const distanceEl = $("distance");
+const visibility = $("visibility");
 const goldClue = $("goldClue");
+const goldArrow = $("goldArrow");
 const shootBtn = $("shoot");
+const flashBtn = $("flashBtn");
 const ammoEl = $("ammo");
 const playerCountEl = $("playerCount");
 const computerModeBtn = $("computerMode");
@@ -333,29 +358,22 @@ const roomInfo = $("roomInfo");
 
 const SUPABASE_URL = "https://daiykupnjfbcsycimxmz.supabase.co";
 const SUPABASE_KEY = "sb_publishable_DsXWL1_SIpxoC0yA2MNN1w_70D7pRQI";
+
 let supabaseClient = null;
 let networkChannel = null;
 let multiplayer = false;
-let role = "hunter";
 let playerId = "";
 let remotePlayers = new Map();
 let targetPlayerId = null;
 let roomCode = "";
 let networkReady = false;
-let opponentReady = false;
 let lastNetworkSend = 0;
-let remoteStateReceived = false;
-
 
 /* =========================================================
-   GAME
+   GAME STATE
 ========================================================= */
 
-let scene;
-let camera;
-let renderer;
-let clock;
-let player;
+let scene, camera, renderer, clock, player;
 let flashLight = null;
 let started = false;
 
@@ -365,88 +383,101 @@ const CELL = 2.15;
 const COLS = 31;
 const ROWS = 45;
 
+const PLAYER_SPEED = 6.4;
+const HIDER_SPEED = 3.2;
+const PLAYER_RADIUS = 0.34;
+
 let maze = [];
-let startCell;
-let goalCell;
-let goalObject;
+let startCell, goalCell;
+let goalObject = null;
 
 let goldObject = null;
 let goldCell = null;
 let goldCollected = false;
-let hider=null, hiderCell=null, hiderTarget=null, hiderMoveTimer=0;
-let hiderVisible=false, hiderFound=false, gameOver=false;
-let goldWinBroadcast=false;
-let flashActive=false;
-let flashUntil=0;
-let flashCooldownUntil=0;
-let shotCooldownUntil=0;
-let shotCount=0;
-let playerCount=1;
-let maxBullets=5;
-let bullets=5;
 
-const FLASH_DURATION=5000;
-const FLASH_COOLDOWN=8000;
-const NORMAL_VISION=12;
-const FLASH_VISION=27;
-let potholes=[];
-let hazardMessageUntil=0;
-const visibility=$("visibility");
+let hider = null, hiderCell = null, hiderTarget = null, hiderMoveTimer = 0;
+let hiderFound = false, gameOver = false;
+let goldWinBroadcast = false;
+
+let flashActive = false;
+let flashUntil = 0;
+let flashCooldownUntil = 0;
+
+let playerCount = 1;
+let maxBullets = 5;
+let bullets = 5;
+
+const FLASH_DURATION = 5000;
+const FLASH_COOLDOWN = 8000;
+const NORMAL_VISION = 12;
+const FLASH_VISION = 27;
+
+let potholes = [];
+let hazardMessageUntil = 0;
 
 let seed = 734921;
 
-function updateAmmoDisplay(){
-  if(ammoEl) ammoEl.textContent = "🔫 Bullets: "+bullets;
-  if(playerCountEl) playerCountEl.textContent = "Players: "+playerCount;
-  if(shootBtn){
-    shootBtn.textContent = "🔫 "+bullets;
-    shootBtn.style.display = (player && !gameOver && bullets>0) ? "block" : "none";
-  }
-}
+/* Camera follow target, smoothed each frame. */
+const camFocus = { x: 0, z: 0 };
 
-function setPlayerCount(count){
-  count=Math.max(1,Number(count)||1);
-  const previous=playerCount;
-  playerCount=count;
-
-  if(!multiplayer){
-    maxBullets=5;
-    bullets=Math.min(5,Math.max(0,bullets));
-  }else{
-    // Every joined player contributes one bullet. New players add a bullet;
-    // already-spent bullets are not restored when someone leaves.
-    if(count>previous){
-      bullets += count-previous;
-    }
-    maxBullets=Math.max(maxBullets,count);
-    bullets=Math.min(bullets,maxBullets);
-  }
-  updateAmmoDisplay();
-}
-
-function resetAmmoForMode(){
-  playerCount=1;
-  maxBullets=multiplayer ? 1 : 5;
-  bullets=maxBullets;
-  updateAmmoDisplay();
-}
+/* =========================================================
+   HELPERS
+========================================================= */
 
 function rnd(){
   seed = (seed * 1664525 + 1013904223) >>> 0;
   return seed / 4294967296;
 }
 
-function cx(c){
-  return (c - (COLS - 1) / 2) * CELL;
+function cx(c){ return (c - (COLS - 1) / 2) * CELL; }
+function cz(r){ return (r - (ROWS - 1) / 2) * CELL; }
+
+function cellFromWorld(x,z){
+  return {
+    r: Math.round(z / CELL + (ROWS - 1) / 2),
+    c: Math.round(x / CELL + (COLS - 1) / 2)
+  };
 }
 
-function cz(r){
-  return (r - (ROWS - 1) / 2) * CELL;
+function isOpenCell(r,c){
+  if(r < 0 || r >= ROWS || c < 0 || c >= COLS) return false;
+  return maze[r][c] === 0;
 }
 
+/* Collision test with a small body radius so the player
+   cannot clip through tree corners. */
+function canWalk(x,z){
+  const r = PLAYER_RADIUS;
+  const points = [[x - r, z], [x + r, z], [x, z - r], [x, z + r]];
+  for(const p of points){
+    const cell = cellFromWorld(p[0], p[1]);
+    if(!isOpenCell(cell.r, cell.c)) return false;
+  }
+  return true;
+}
+
+function updateAmmoDisplay(){
+  ammoEl.textContent = "🔫 Bullets: " + bullets;
+  playerCountEl.textContent = "Players: " + playerCount;
+  shootBtn.textContent = "🔫 " + bullets;
+  shootBtn.style.display = (started && player && !gameOver && bullets > 0) ? "block" : "none";
+  flashBtn.style.display = (started && player && !gameOver) ? "block" : "none";
+}
+
+function setPlayerCount(count){
+  playerCount = Math.max(1, Number(count) || 1);
+  updateAmmoDisplay();
+}
+
+function resetAmmo(){
+  playerCount = 1;
+  maxBullets = 5;
+  bullets = maxBullets;
+  updateAmmoDisplay();
+}
 
 /* =========================================================
-   GAME MODE / MULTIPLAYER LOBBY
+   LOBBY
 ========================================================= */
 
 let selectedMode = "computer";
@@ -454,8 +485,9 @@ let selectedMode = "computer";
 function setMode(mode){
   selectedMode = mode;
   multiplayer = mode !== "computer";
-  resetAmmoForMode();
-  [computerModeBtn,createModeBtn,joinModeBtn].forEach(b=>b.classList.remove("active"));
+  resetAmmo();
+
+  [computerModeBtn, createModeBtn, joinModeBtn].forEach(b => b.classList.remove("active"));
   if(mode === "computer") computerModeBtn.classList.add("active");
   if(mode === "create") createModeBtn.classList.add("active");
   if(mode === "join") joinModeBtn.classList.add("active");
@@ -466,159 +498,179 @@ function setMode(mode){
   roomInfo.textContent = "";
 
   if(mode === "create"){
-    // The app/server-side game flow generates the PIN; the creator never types it.
     roomCode = makeRoomCode();
     roomPinDisplay.textContent = roomCode;
-    begin.textContent = "Create Game & Enter";
+    begin.textContent = "Create game and enter";
   }else if(mode === "join"){
     roomCode = "";
     roomCodeInput.value = "";
-    begin.textContent = "Join Game & Enter";
+    begin.textContent = "Join game and enter";
   }else{
-    begin.textContent = "Enter the Forest";
+    begin.textContent = "Enter the forest";
   }
 }
 
-computerModeBtn.addEventListener("click",()=>setMode("computer"));
-createModeBtn.addEventListener("click",()=>setMode("create"));
-joinModeBtn.addEventListener("click",()=>setMode("join"));
+computerModeBtn.addEventListener("click", () => setMode("computer"));
+createModeBtn.addEventListener("click", () => setMode("create"));
+joinModeBtn.addEventListener("click", () => setMode("join"));
 
 function makeRoomCode(){
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
 function seedFromRoomCode(code){
-  let h=2166136261;
-  for(let i=0;i<code.length;i++){
+  let h = 2166136261;
+  for(let i = 0; i < code.length; i++){
     h ^= code.charCodeAt(i);
-    h = Math.imul(h,16777619);
+    h = Math.imul(h, 16777619);
   }
-  return (h>>>0) || 734921;
-}
-
-function initRealtime(){
-  if(!window.supabase) throw new Error("Supabase library failed to load");
-  supabaseClient = window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-}
-
-function makePlayerId(){
-  return Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
+  return (h >>> 0) || 734921;
 }
 
 function hashText(text){
-  let h=2166136261;
-  for(let i=0;i<text.length;i++){ h ^= text.charCodeAt(i); h=Math.imul(h,16777619); }
-  return h>>>0;
+  let h = 2166136261;
+  for(let i = 0; i < text.length; i++){
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
 }
 
+function makePlayerId(){
+  return Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4);
+}
+
+/* =========================================================
+   MULTIPLAYER
+========================================================= */
+
 function getMultiplayerSpawn(id){
-  const cells=[];
-  for(let r=1;r<ROWS-1;r++) for(let c=1;c<COLS-1;c++){
-    if(maze[r][c]!==0) continue;
-    const ds=Math.hypot(r-startCell.r,c-startCell.c);
-    const dg=Math.hypot(r-goalCell.r,c-goalCell.c);
-    if(ds>4 && dg>4) cells.push({r,c});
+  const cells = [];
+  for(let r = 1; r < ROWS - 1; r++){
+    for(let c = 1; c < COLS - 1; c++){
+      if(maze[r][c] !== 0) continue;
+      const ds = Math.hypot(r - startCell.r, c - startCell.c);
+      const dg = Math.hypot(r - goalCell.r, c - goalCell.c);
+      if(ds > 4 && dg > 4) cells.push({r,c});
+    }
   }
-  if(!cells.length) return {r:startCell.r,c:startCell.c};
-  return cells[hashText(id)%cells.length];
+  if(!cells.length) return { r: startCell.r, c: startCell.c };
+  return cells[hashText(id) % cells.length];
 }
 
 function createRemotePlayer(id){
-  if(!player || remotePlayers.has(id)) return remotePlayers.get(id);
-  const avatar=player.clone(true);
-  avatar.visible=true;
-  avatar.userData.playerId=id;
-  avatar.traverse(obj=>{
+  if(!player) return null;
+  if(remotePlayers.has(id)) return remotePlayers.get(id);
+
+  const avatar = player.clone(true);
+  avatar.visible = true;
+  avatar.userData.playerId = id;
+  avatar.traverse(obj => {
     if(!obj.isMesh || !obj.material || !obj.material.color) return;
-    obj.material=obj.material.clone();
-    if(obj.position.y>1.7) obj.material.color.setHex(0xb97859);
-    else if(obj.position.y>0.75) obj.material.color.setHex(0x4b73b5);
-    else if(obj.position.y<0.7) obj.material.color.setHex(0x27303a);
+    obj.material = obj.material.clone();
+    if(obj.position.y > 1.7) obj.material.color.setHex(0xb97859);
+    else if(obj.position.y > 0.75) obj.material.color.setHex(0x4b73b5);
+    else if(obj.position.y < 0.7) obj.material.color.setHex(0x27303a);
   });
-  const cell=getMultiplayerSpawn(id);
-  avatar.position.set(cx(cell.c),0,cz(cell.r));
+
+  const cell = getMultiplayerSpawn(id);
+  avatar.position.set(cx(cell.c), 0, cz(cell.r));
   scene.add(avatar);
-  const entry={id,object:avatar,lastSeen:performance.now(),active:true};
-  remotePlayers.set(id,entry);
+
+  const entry = { id, object: avatar, lastSeen: performance.now(), active: true };
+  remotePlayers.set(id, entry);
   return entry;
 }
 
 function removeRemotePlayer(id){
-  const entry=remotePlayers.get(id);
+  const entry = remotePlayers.get(id);
   if(!entry) return;
   scene.remove(entry.object);
   remotePlayers.delete(id);
-  if(targetPlayerId===id) targetPlayerId=null;
+  if(targetPlayerId === id) targetPlayerId = null;
 }
 
 function applyRemoteState(payload){
-  if(!payload || !payload.playerId || payload.playerId===playerId) return;
-  const entry=createRemotePlayer(payload.playerId);
-  if(Number.isFinite(Number(payload.x))) entry.object.position.x=Number(payload.x);
-  if(Number.isFinite(Number(payload.z))) entry.object.position.z=Number(payload.z);
-  if(Number.isFinite(Number(payload.ry))) entry.object.rotation.y=Number(payload.ry);
-  entry.active=payload.active!==false;
-  entry.object.visible=entry.active;
-  entry.lastSeen=performance.now();
+  if(!payload || !payload.playerId || payload.playerId === playerId) return;
+  const entry = createRemotePlayer(payload.playerId);
+  if(!entry) return;
+  if(Number.isFinite(Number(payload.x))) entry.object.position.x = Number(payload.x);
+  if(Number.isFinite(Number(payload.z))) entry.object.position.z = Number(payload.z);
+  if(Number.isFinite(Number(payload.ry))) entry.object.rotation.y = Number(payload.ry);
+  entry.active = payload.active !== false;
+  entry.object.visible = entry.active;
+  entry.lastSeen = performance.now();
 }
 
 async function setupMultiplayer(){
-  initRealtime();
-  if(!roomCode) throw new Error("Game code is required");
-  playerId=makePlayerId();
-  seed=seedFromRoomCode(roomCode);
+  if(!window.supabase) throw new Error("Supabase library failed to load");
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  networkChannel = supabaseClient.channel("blind-path-"+roomCode,{
-    config:{broadcast:{self:false},presence:{key:playerId}}
+  if(!roomCode) throw new Error("A game PIN is required");
+
+  playerId = makePlayerId();
+  seed = seedFromRoomCode(roomCode);
+
+  networkChannel = supabaseClient.channel("gold-hunt-" + roomCode, {
+    config: { broadcast: { self:false }, presence: { key: playerId } }
   });
 
   function refreshRoomPlayers(){
     if(!networkChannel) return;
-    const state=networkChannel.presenceState();
+    const state = networkChannel.presenceState();
     setPlayerCount(Object.keys(state).length);
   }
 
-  networkChannel.on("presence",{event:"sync"},refreshRoomPlayers);
-  networkChannel.on("presence",{event:"join"},refreshRoomPlayers);
-  networkChannel.on("presence",{event:"leave"},refreshRoomPlayers);
-  networkChannel.on("broadcast",{event:"state"},({payload})=>applyRemoteState(payload));
+  networkChannel.on("presence", { event:"sync" }, refreshRoomPlayers);
+  networkChannel.on("presence", { event:"join" }, refreshRoomPlayers);
+  networkChannel.on("presence", { event:"leave" }, refreshRoomPlayers);
 
-  networkChannel.on("broadcast",{event:"hit"},({payload})=>{
+  networkChannel.on("broadcast", { event:"state" }, ({payload}) => applyRemoteState(payload));
+
+  networkChannel.on("broadcast", { event:"hit" }, ({payload}) => {
     if(!payload || !payload.targetId) return;
-    const target=remotePlayers.get(payload.targetId);
-    if(target){ target.active=false; target.object.visible=false; }
-    if(payload.targetId===playerId){
-      gameOver=true;
-      shootBtn.style.display="none";
-      status.textContent="🎯 You were caught!";
-      distanceEl.textContent="You were caught";
-      visibility.textContent="CAUGHT";
-      visibility.style.color="#ff6b6b";
-    }else if(payload.shooterId===playerId){
-      status.textContent="🎯 HIT! Player caught!";
+    const target = remotePlayers.get(payload.targetId);
+    if(target){ target.active = false; target.object.visible = false; }
+    if(payload.targetId === playerId){
+      gameOver = true;
+      statusEl.textContent = "🎯 You were caught";
+      distanceEl.textContent = "You were caught";
+      visibility.textContent = "CAUGHT";
+      visibility.style.color = "#ff6b6b";
+      updateAmmoDisplay();
+    }else if(payload.shooterId === playerId){
+      statusEl.textContent = "🎯 Hit — player caught";
     }
   });
 
-  networkChannel.on("broadcast",{event:"gold"},({payload})=>{
-    if(!payload || payload.type!=="collected") return;
-    if(goldCollected) return;
-    goldCollected=true;
-    if(goldObject) goldObject.visible=false;
-    goldClue.style.display="none";
-    gameOver=true;
-    status.textContent=payload.playerId===playerId ? "🏆 GOLD FOUND! You win!" : "🏆 Gold found by another player!";
-    distanceEl.textContent="Gold collected";
-    visibility.textContent=payload.playerId===playerId ? "WINNER" : "GOLD FOUND";
-    visibility.style.color="#ffd75e";
+  networkChannel.on("broadcast", { event:"gold" }, ({payload}) => {
+    if(!payload || payload.type !== "collected" || goldCollected) return;
+    goldCollected = true;
+    if(goldObject) goldObject.visible = false;
+    goldClue.style.display = "none";
+    gameOver = true;
+    statusEl.textContent = payload.playerId === playerId ? "🏆 Gold found — you win" : "🏆 Another player found the gold";
+    distanceEl.textContent = "Gold collected";
+    visibility.textContent = payload.playerId === playerId ? "WINNER" : "GOLD FOUND";
+    visibility.style.color = "#ffd75e";
+    updateAmmoDisplay();
   });
 
-  await networkChannel.subscribe(async(statusText)=>{
-    if(statusText === "SUBSCRIBED"){
-      networkReady=true;
-      await networkChannel.track({playerId});
-      refreshRoomPlayers();
-      roomInfo.textContent = "Connected — share PIN "+roomCode+" with other players";
-    }
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Could not reach the game server")), 12000);
+    networkChannel.subscribe(async (statusText) => {
+      if(statusText === "SUBSCRIBED"){
+        clearTimeout(timer);
+        networkReady = true;
+        await networkChannel.track({ playerId });
+        refreshRoomPlayers();
+        roomInfo.textContent = "Connected. Share PIN " + roomCode;
+        resolve();
+      }else if(statusText === "CHANNEL_ERROR" || statusText === "TIMED_OUT"){
+        clearTimeout(timer);
+        reject(new Error("Connection failed: " + statusText));
+      }
+    });
   });
 }
 
@@ -626,66 +678,62 @@ async function setupMultiplayer(){
    START
 ========================================================= */
 
-begin.addEventListener("click",async function(e){
+begin.addEventListener("click", async function(e){
   e.preventDefault();
   if(started) return;
 
   if(typeof THREE === "undefined"){
-    roomInfo.textContent="3D engine failed to load. Please refresh the page and try again.";
+    roomInfo.textContent = "The 3D engine did not load. Refresh the page and try again.";
     return;
   }
 
   if(selectedMode === "create"){
-    if(!roomCode) roomCode=makeRoomCode();
-    roomPinDisplay.textContent=roomCode;
-    role="player";
+    if(!roomCode) roomCode = makeRoomCode();
+    roomPinDisplay.textContent = roomCode;
   }else if(selectedMode === "join"){
-    roomCode=roomCodeInput.value.trim();
+    roomCode = roomCodeInput.value.trim();
     if(!/^\d{6}$/.test(roomCode)){
-      roomInfo.textContent="Enter the 6-digit numeric PIN.";
+      roomInfo.textContent = "Enter the 6-digit PIN.";
       return;
     }
-    role="player";
-  }else{
-    role="hunter";
   }
 
-  roomInfo.textContent=multiplayer ? "Connecting to game…" : "Building forest…";
+  begin.disabled = true;
+  roomInfo.textContent = multiplayer ? "Connecting…" : "Building the forest…";
 
   try{
     if(multiplayer) await setupMultiplayer();
 
-    // Initialize the complete 3D scene before hiding the start screen.
     init();
 
-    started=true;
+    started = true;
+    window.__goldHuntStarted = true;
     start.classList.add("hidden");
-    hud.style.display="block";
-    shootBtn.style.display="none";
+    hud.style.display = "block";
+    updateAmmoDisplay();
 
     if(multiplayer){
-      status.textContent="Multiplayer ready — find the gold!";
-      roomInfo.textContent="Share this code with other players: "+roomCode;
+      statusEl.textContent = "Find the gold before the others";
+      roomInfo.textContent = "Share this PIN with other players: " + roomCode;
     }else{
-      status.textContent="🪙 Find the hidden gold";
+      statusEl.textContent = "🪙 Find the hidden gold";
     }
   }catch(err){
-    console.error("Gold Hunt startup error:",err);
-    started=false;
+    console.error("Gold Hunt startup error:", err);
+    started = false;
+    begin.disabled = false;
 
     if(networkChannel){
       try{ await networkChannel.unsubscribe(); }catch(_){}
-      networkChannel=null;
+      networkChannel = null;
     }
-    networkReady=false;
+    networkReady = false;
 
-    hud.style.display="none";
+    hud.style.display = "none";
     start.classList.remove("hidden");
-    roomInfo.textContent="Game could not start: " +
-      (err && err.message ? err.message : String(err));
+    roomInfo.textContent = "Could not start: " + (err && err.message ? err.message : String(err));
   }
 });
-
 
 /* =========================================================
    INIT
@@ -694,926 +742,334 @@ begin.addEventListener("click",async function(e){
 function init(){
 
   scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x87b98a);
+  scene.fog = new THREE.FogExp2(0x87b98a, 0.006);
 
-  scene.background =
-    new THREE.Color(0x87b98a);
-
-  scene.fog = new THREE.FogExp2(
-  0x87b98a,
-  0.006
-);
-
-
-  /* -------------------------------------------------------
-     TOP-DOWN 3/4 CAMERA
-
-     Orthographic keeps the reference-game feeling.
-     The slight Z offset keeps objects visibly 3D.
-  ------------------------------------------------------- */
-
-  const aspect =
-    innerWidth / innerHeight;
-
+  const aspect = innerWidth / innerHeight;
   const view = 23;
 
-  camera =
-    new THREE.OrthographicCamera(
-      -view * aspect,
-       view * aspect,
-       view,
-      -view,
-      0.1,
-      300
-    );
-
-  camera.position.set(
-    0,
-    38,
-    13
+  camera = new THREE.OrthographicCamera(
+    -view * aspect, view * aspect, view, -view, 0.1, 300
   );
-
+  camera.position.set(0, 38, 13);
   camera.lookAt(0,0,0);
 
-
-  /* -------------------------------------------------------
-     RENDERER
-  ------------------------------------------------------- */
-
-  renderer =
-    new THREE.WebGLRenderer({
-      antialias:true
-    });
-
-  renderer.setPixelRatio(
-    Math.min(devicePixelRatio,2)
-  );
-
-  renderer.setSize(
-    innerWidth,
-    innerHeight
-  );
-
+  renderer = new THREE.WebGLRenderer({ antialias:true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type =
-    THREE.PCFSoftShadowMap;
-
-  game.appendChild(
-    renderer.domElement
-  );
-
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  game.appendChild(renderer.domElement);
 
   clock = new THREE.Clock();
 
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x557755, 1.15));
 
-  /* -------------------------------------------------------
-     LIGHTING
-  ------------------------------------------------------- */
-
-  scene.add(
-    new THREE.HemisphereLight(
-      0xffffff,
-      0x557755,
-      1.15
-    )
-  );
-
-
-  const moon =
-    new THREE.DirectionalLight(
-      0xffffff,
-      1.2
-    );
-
-  moon.position.set(
-    -25,
-    45,
-    18
-  );
-
+  const moon = new THREE.DirectionalLight(0xffffff, 1.2);
+  moon.position.set(-25, 45, 18);
   moon.castShadow = true;
-
   moon.shadow.mapSize.width = 2048;
   moon.shadow.mapSize.height = 2048;
-
   moon.shadow.camera.left = -80;
   moon.shadow.camera.right = 80;
   moon.shadow.camera.top = 100;
   moon.shadow.camera.bottom = -100;
-
   scene.add(moon);
 
-
   createMaze();
-
   buildWorld();
-
   createPlayer();
-  if(!multiplayer){
-    createHider();
+
+  if(multiplayer){
+    const localCell = getMultiplayerSpawn(playerId);
+    player.position.set(cx(localCell.c), 0, cz(localCell.r));
   }else{
-    const localCell=getMultiplayerSpawn(playerId);
-    player.position.set(cx(localCell.c),0,cz(localCell.r));
+    createHider();
   }
 
+  camFocus.x = player.position.x;
+  camFocus.z = player.position.z;
   updateCamera(1);
-  updateAmmoDisplay();
-
-  status.textContent = multiplayer ? "👥 Find the gold with the other players" : "🪙 Find the hidden gold";
 
   requestAnimationFrame(loop);
 }
 
-
 /* =========================================================
    MAZE
-   Starts at bottom CENTER and exits at top CENTER.
-
-   Because this is a perfect maze, every open corridor
-   belongs to the same connected maze.
 ========================================================= */
 
 function createMaze(){
 
-  maze =
-    Array.from(
-      {length:ROWS},
-      () => Array(COLS).fill(1)
-    );
-
+  maze = Array.from({length:ROWS}, () => Array(COLS).fill(1));
 
   const startR = ROWS - 2;
   const startC = Math.floor(COLS / 2);
-
   maze[startR][startC] = 0;
 
-
-  const stack = [{
-    r:startR,
-    c:startC
-  }];
-
-
-  const directions = [
-    [-2,0],
-    [2,0],
-    [0,-2],
-    [0,2]
-  ];
-
+  const stack = [{ r:startR, c:startC }];
+  const directions = [[-2,0],[2,0],[0,-2],[0,2]];
 
   while(stack.length){
-
-    const current =
-      stack[stack.length - 1];
-
+    const current = stack[stack.length - 1];
     const choices = [];
 
-
     for(const d of directions){
-
-      const nr =
-        current.r + d[0];
-
-      const nc =
-        current.c + d[1];
-
-
-      if(
-        nr > 0 &&
-        nr < ROWS - 1 &&
-        nc > 0 &&
-        nc < COLS - 1 &&
-        maze[nr][nc] === 1
-      ){
-
-        choices.push({
-          nr:nr,
-          nc:nc,
-          wr:current.r + d[0]/2,
-          wc:current.c + d[1]/2
-        });
-
+      const nr = current.r + d[0];
+      const nc = current.c + d[1];
+      if(nr > 0 && nr < ROWS - 1 && nc > 0 && nc < COLS - 1 && maze[nr][nc] === 1){
+        choices.push({ nr, nc, wr: current.r + d[0]/2, wc: current.c + d[1]/2 });
       }
-
     }
 
+    if(!choices.length){ stack.pop(); continue; }
 
-    if(!choices.length){
-
-      stack.pop();
-      continue;
-
-    }
-
-
-    const p =
-      choices[
-        Math.floor(
-          rnd() * choices.length
-        )
-      ];
-
-
+    const p = choices[Math.floor(rnd() * choices.length)];
     maze[p.wr][p.wc] = 0;
     maze[p.nr][p.nc] = 0;
-
-
-    stack.push({
-      r:p.nr,
-      c:p.nc
-    });
-
+    stack.push({ r:p.nr, c:p.nc });
   }
 
-
-  startCell = {
-    r:ROWS - 2,
-    c:startC
-  };
-
-
-  goalCell = {
-    r:1,
-    c:Math.floor(COLS / 2)
-  };
-
-
-  /* Open a clean entrance and exit */
+  startCell = { r: ROWS - 2, c: startC };
+  goalCell  = { r: 1, c: Math.floor(COLS / 2) };
 
   maze[ROWS-1][startC] = 0;
   maze[0][goalCell.c] = 0;
-
 }
 
-
 /* =========================================================
-   WORLD GROUND
+   GROUND
 ========================================================= */
 
 function buildGround(){
 
-  const width =
-    COLS * CELL + 12;
+  const width = COLS * CELL + 12;
+  const depth = ROWS * CELL + 12;
 
-  const depth =
-    ROWS * CELL + 12;
-
-
-  const ground =
-    new THREE.Mesh(
-      new THREE.PlaneGeometry(
-        width,
-        depth
-      ),
-      new THREE.MeshStandardMaterial({
-        color:0x5f8058,
-        roughness:1
-      })
-    );
-
-  ground.rotation.x =
-    -Math.PI / 2;
-
-  ground.position.y =
-    -0.18;
-
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(width, depth),
+    new THREE.MeshStandardMaterial({ color:0x5f8058, roughness:1 })
+  );
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = -0.18;
   ground.receiveShadow = true;
-
   scene.add(ground);
 
+  const outer = new THREE.Mesh(
+    new THREE.PlaneGeometry(width + 30, depth + 30),
+    new THREE.MeshStandardMaterial({ color:0x41613f, roughness:1 })
+  );
+  outer.rotation.x = -Math.PI / 2;
+  outer.position.y = -0.25;
+  outer.receiveShadow = true;
+  scene.add(outer);
 
-  /* Large darker outer forest floor */
+  const patchColors = [0x385537, 0x2d492f, 0x3d5939, 0x28432d];
 
-  const outer =
-    new THREE.Mesh(
-      new THREE.PlaneGeometry(
-        width + 30,
-        depth + 30
-      ),
+  for(let i = 0; i < 150; i++){
+    const patch = new THREE.Mesh(
+      new THREE.CircleGeometry(0.5 + rnd()*1.8, 9),
       new THREE.MeshStandardMaterial({
-        color:0x41613f,
+        color: patchColors[Math.floor(rnd()*patchColors.length)],
         roughness:1
       })
     );
-
-  outer.rotation.x =
-    -Math.PI / 2;
-
-  outer.position.y =
-    -0.25;
-
-  outer.receiveShadow = true;
-
-  scene.add(outer);
-
-
-  /* Irregular floor patches */
-
-  const patchColors = [
-    0x385537,
-    0x2d492f,
-    0x3d5939,
-    0x28432d
-  ];
-
-
-  for(let i=0;i<150;i++){
-
-    const patch =
-      new THREE.Mesh(
-        new THREE.CircleGeometry(
-          0.5 + rnd()*1.8,
-          9
-        ),
-        new THREE.MeshStandardMaterial({
-          color:
-            patchColors[
-              Math.floor(
-                rnd()*patchColors.length
-              )
-            ],
-          roughness:1
-        })
-      );
-
-    patch.rotation.x =
-      -Math.PI/2;
-
-    patch.position.set(
-      (rnd()-0.5)*COLS*CELL,
-      -0.02,
-      (rnd()-0.5)*ROWS*CELL
-    );
-
-    patch.scale.x =
-      0.7 + rnd()*1.8;
-
-    patch.scale.y =
-      0.7 + rnd()*1.2;
-
+    patch.rotation.x = -Math.PI/2;
+    patch.position.set((rnd()-0.5)*COLS*CELL, -0.02, (rnd()-0.5)*ROWS*CELL);
+    patch.scale.x = 0.7 + rnd()*1.8;
+    patch.scale.y = 0.7 + rnd()*1.2;
     scene.add(patch);
-
   }
-
 }
 
-
 /* =========================================================
-   NATURAL PATH
-
-   No visible square grid.
-   Every open maze cell simply becomes part of the
-   continuous forest floor.
+   PATHS
 ========================================================= */
 
 function buildPaths(){
 
-  const pathMat =
-    new THREE.MeshStandardMaterial({
-      color:0x718b63,
-      roughness:1
-    });
+  const pathMat = new THREE.MeshStandardMaterial({ color:0x718b63, roughness:1 });
+  const dirtMat = new THREE.MeshStandardMaterial({ color:0x806b4c, roughness:1 });
 
-  const dirtMat =
-    new THREE.MeshStandardMaterial({
-      color:0x806b4c,
-      roughness:1
-    });
-
-
-  for(let r=0;r<ROWS;r++){
-
-    for(let c=0;c<COLS;c++){
-
-      if(maze[r][c] !== 0)
-        continue;
-
+  for(let r = 0; r < ROWS; r++){
+    for(let c = 0; c < COLS; c++){
+      if(maze[r][c] !== 0) continue;
 
       const x = cx(c);
       const z = cz(r);
 
-
-      /* Full corridor floor */
-
-      const tile =
-        new THREE.Mesh(
-          new THREE.PlaneGeometry(
-            CELL + 0.12,
-            CELL + 0.12
-          ),
-          pathMat
-        );
-
-      tile.rotation.x =
-        -Math.PI/2;
-
-      tile.position.set(
-        x,
-        0.005,
-        z
+      const tile = new THREE.Mesh(
+        new THREE.PlaneGeometry(CELL + 0.12, CELL + 0.12),
+        pathMat
       );
-
+      tile.rotation.x = -Math.PI/2;
+      tile.position.set(x, 0.005, z);
       tile.receiveShadow = true;
-
       scene.add(tile);
 
-
-      /* Natural dirt strip */
-
-      const dirt =
-        new THREE.Mesh(
-          new THREE.CircleGeometry(
-            0.62 + rnd()*0.12,
-            10
-          ),
-          dirtMat
-        );
-
-      dirt.rotation.x =
-        -Math.PI/2;
-
-      dirt.position.set(
-        x + (rnd()-0.5)*0.25,
-        0.018,
-        z + (rnd()-0.5)*0.25
+      const dirt = new THREE.Mesh(
+        new THREE.CircleGeometry(0.62 + rnd()*0.12, 10),
+        dirtMat
       );
-
-      dirt.scale.set(
-        1.35,
-        1.7,
-        1
-      );
-
+      dirt.rotation.x = -Math.PI/2;
+      dirt.position.set(x + (rnd()-0.5)*0.25, 0.018, z + (rnd()-0.5)*0.25);
+      dirt.scale.set(1.35, 1.7, 1);
       dirt.receiveShadow = true;
-
       scene.add(dirt);
-
     }
-
   }
-
 }
-
 
 /* =========================================================
    TREES
-
-   Trees are placed on maze-wall cells.
-   Their trunks and foliage form the visible maze walls.
 ========================================================= */
 
 function createTree(x,z,s){
 
-  const g =
-    new THREE.Group();
-
-  g.position.set(
-    x,
-    0,
-    z
-  );
-
+  const g = new THREE.Group();
+  g.position.set(x, 0, z);
   g.scale.setScalar(s);
 
-
-  /* Trunk */
-
-  const trunk =
-    new THREE.Mesh(
-      new THREE.CylinderGeometry(
-        0.18,
-        0.31,
-        2.8,
-        8
-      ),
-      new THREE.MeshStandardMaterial({
-        color:0x513824,
-        roughness:1
-      })
-    );
-
-  trunk.position.y =
-    1.4;
-
+  const trunk = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.18, 0.31, 2.8, 8),
+    new THREE.MeshStandardMaterial({ color:0x513824, roughness:1 })
+  );
+  trunk.position.y = 1.4;
   trunk.castShadow = true;
-
   g.add(trunk);
 
-
-  /* Branches */
-
-  for(let i=0;i<3;i++){
-
-    const branch =
-      new THREE.Mesh(
-        new THREE.CylinderGeometry(
-          0.055,
-          0.11,
-          1.15,
-          7
-        ),
-        new THREE.MeshStandardMaterial({
-          color:0x432f21,
-          roughness:1
-        })
-      );
-
-    branch.position.y =
-      1.5 + i*0.48;
-
-    branch.rotation.z =
-      i%2 ? 0.72 : -0.72;
-
-    branch.rotation.y =
-      i*1.9;
-
+  for(let i = 0; i < 3; i++){
+    const branch = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.055, 0.11, 1.15, 7),
+      new THREE.MeshStandardMaterial({ color:0x432f21, roughness:1 })
+    );
+    branch.position.y = 1.5 + i*0.48;
+    branch.rotation.z = i % 2 ? 0.72 : -0.72;
+    branch.rotation.y = i * 1.9;
     branch.castShadow = true;
-
     g.add(branch);
-
   }
 
+  const colors = [0x16431f, 0x1c5025, 0x24622d, 0x2b6b32];
 
-  /* Layered rounded foliage */
-
-  const colors = [
-    0x16431f,
-    0x1c5025,
-    0x24622d,
-    0x2b6b32
-  ];
-
-
-  for(let i=0;i<4;i++){
-
-    const crown =
-      new THREE.Mesh(
-        new THREE.IcosahedronGeometry(
-          0.98 - i*0.10,
-          1
-        ),
-        new THREE.MeshStandardMaterial({
-          color:colors[i],
-          roughness:.95
-        })
-      );
-
-    crown.position.y =
-      2.55 + i*0.58;
-
-    crown.scale.y =
-      1.12;
-
+  for(let i = 0; i < 4; i++){
+    const crown = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(0.98 - i*0.10, 1),
+      new THREE.MeshStandardMaterial({ color:colors[i], roughness:.95 })
+    );
+    crown.position.y = 2.55 + i*0.58;
+    crown.scale.y = 1.12;
     crown.castShadow = true;
-
     g.add(crown);
-
   }
-
 
   scene.add(g);
-
 }
-
-
-/* =========================================================
-   FOREST WALLS
-========================================================= */
 
 function buildForestWalls(){
 
-  for(let r=0;r<ROWS;r++){
-
-    for(let c=0;c<COLS;c++){
-
-      if(maze[r][c] !== 1)
-        continue;
-
-
-      /*
-       * Most wall cells receive a tree.
-       * A few receive two smaller trees so the walls
-       * look organic rather than like a tiled hedge.
-       */
+  for(let r = 0; r < ROWS; r++){
+    for(let c = 0; c < COLS; c++){
+      if(maze[r][c] !== 1) continue;
 
       const x = cx(c);
       const z = cz(r);
 
-
       if(rnd() < 0.78){
-
-        createTree(
-          x + (rnd()-0.5)*0.38,
-          z + (rnd()-0.5)*0.38,
-          0.82 + rnd()*0.50
-        );
-
+        createTree(x + (rnd()-0.5)*0.38, z + (rnd()-0.5)*0.38, 0.82 + rnd()*0.50);
+      }else{
+        createTree(x - 0.35 + rnd()*0.15, z + (rnd()-0.5)*0.3, 0.62 + rnd()*0.30);
+        createTree(x + 0.35 - rnd()*0.15, z + (rnd()-0.5)*0.3, 0.62 + rnd()*0.30);
       }
-      else{
-
-        createTree(
-          x - 0.35 + rnd()*0.15,
-          z + (rnd()-0.5)*0.3,
-          0.62 + rnd()*0.30
-        );
-
-        createTree(
-          x + 0.35 - rnd()*0.15,
-          z + (rnd()-0.5)*0.3,
-          0.62 + rnd()*0.30
-        );
-
-      }
-
     }
-
   }
 
+  for(let i = 0; i < 120; i++){
+    const edge = Math.floor(rnd()*4);
+    let x, z;
 
-  /* Outer forest border */
-
-  for(let i=0;i<120;i++){
-
-    const edge =
-      Math.floor(rnd()*4);
-
-    let x,z;
-
-
-    if(edge===0){
-
-      x =
-        -COLS*CELL/2 -
-        2 +
-        rnd()*6;
-
-      z =
-        (rnd()-0.5) *
-        ROWS*CELL;
-
-    }
-    else if(edge===1){
-
-      x =
-        COLS*CELL/2 +
-        2 -
-        rnd()*6;
-
-      z =
-        (rnd()-0.5) *
-        ROWS*CELL;
-
-    }
-    else if(edge===2){
-
-      x =
-        (rnd()-0.5) *
-        COLS*CELL;
-
-      z =
-        -ROWS*CELL/2 -
-        2 +
-        rnd()*6;
-
-    }
-    else{
-
-      x =
-        (rnd()-0.5) *
-        COLS*CELL;
-
-      z =
-        ROWS*CELL/2 +
-        2 -
-        rnd()*6;
-
+    if(edge === 0){
+      x = -COLS*CELL/2 - 2 + rnd()*6;
+      z = (rnd()-0.5) * ROWS*CELL;
+    }else if(edge === 1){
+      x = COLS*CELL/2 + 2 - rnd()*6;
+      z = (rnd()-0.5) * ROWS*CELL;
+    }else if(edge === 2){
+      x = (rnd()-0.5) * COLS*CELL;
+      z = -ROWS*CELL/2 - 2 + rnd()*6;
+    }else{
+      x = (rnd()-0.5) * COLS*CELL;
+      z = ROWS*CELL/2 + 2 - rnd()*6;
     }
 
-
-    createTree(
-      x,
-      z,
-      0.72 + rnd()*0.72
-    );
-
+    createTree(x, z, 0.72 + rnd()*0.72);
   }
-
 }
 
-
 /* =========================================================
-   ROCK
+   DECORATION
 ========================================================= */
 
 function createRock(x,z,s){
-
-  const rock =
-    new THREE.Mesh(
-      new THREE.DodecahedronGeometry(
-        0.42,
-        1
-      ),
-      new THREE.MeshStandardMaterial({
-        color:0x667067,
-        roughness:1
-      })
-    );
-
-  rock.position.set(
-    x,
-    0.28*s,
-    z
+  const rock = new THREE.Mesh(
+    new THREE.DodecahedronGeometry(0.42, 1),
+    new THREE.MeshStandardMaterial({ color:0x667067, roughness:1 })
   );
-
-  rock.scale.set(
-    1.25*s,
-    0.65*s,
-    s
-  );
-
-  rock.rotation.set(
-    rnd(),
-    rnd(),
-    rnd()
-  );
-
+  rock.position.set(x, 0.28*s, z);
+  rock.scale.set(1.25*s, 0.65*s, s);
+  rock.rotation.set(rnd(), rnd(), rnd());
   rock.castShadow = true;
   rock.receiveShadow = true;
-
   scene.add(rock);
-
 }
-
-
-/* =========================================================
-   BUSH
-========================================================= */
 
 function createBush(x,z,s){
+  const group = new THREE.Group();
+  group.position.set(x, 0, z);
 
-  const group =
-    new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color:0x2f6935, roughness:1 });
 
-  group.position.set(
-    x,
-    0,
-    z
-  );
-
-
-  const mat =
-    new THREE.MeshStandardMaterial({
-      color:0x2f6935,
-      roughness:1
-    });
-
-
-  for(let i=0;i<5;i++){
-
-    const leaf =
-      new THREE.Mesh(
-        new THREE.IcosahedronGeometry(
-          (.30 + rnd()*.18)*s,
-          1
-        ),
-        mat
-      );
-
-    leaf.position.set(
-      (rnd()-0.5)*.8*s,
-      .30 + rnd()*.45*s,
-      (rnd()-0.5)*.8*s
+  for(let i = 0; i < 5; i++){
+    const leaf = new THREE.Mesh(
+      new THREE.IcosahedronGeometry((.30 + rnd()*.18)*s, 1),
+      mat
     );
-
-    leaf.scale.y =
-      .75 + rnd()*.35;
-
+    leaf.position.set((rnd()-0.5)*.8*s, .30 + rnd()*.45*s, (rnd()-0.5)*.8*s);
+    leaf.scale.y = .75 + rnd()*.35;
     leaf.castShadow = true;
-
     group.add(leaf);
-
   }
-
 
   scene.add(group);
-
 }
-
-
-/* =========================================================
-   LOG
-========================================================= */
 
 function createLog(x,z){
-
-  const log =
-    new THREE.Mesh(
-      new THREE.CylinderGeometry(
-        .16,
-        .23,
-        1.8,
-        8
-      ),
-      new THREE.MeshStandardMaterial({
-        color:0x4a3020,
-        roughness:1
-      })
-    );
-
-  log.position.set(
-    x,
-    .18,
-    z
+  const log = new THREE.Mesh(
+    new THREE.CylinderGeometry(.16, .23, 1.8, 8),
+    new THREE.MeshStandardMaterial({ color:0x4a3020, roughness:1 })
   );
-
-  log.rotation.z =
-    Math.PI/2;
-
-  log.rotation.y =
-    rnd()*Math.PI;
-
+  log.position.set(x, .18, z);
+  log.rotation.z = Math.PI/2;
+  log.rotation.y = rnd()*Math.PI;
   log.castShadow = true;
-
   scene.add(log);
-
 }
-
-
-/* =========================================================
-   DECORATIONS
-
-   Only place these on open cells, never on maze walls.
-========================================================= */
 
 function buildDecorations(){
+  for(let i = 0; i < 130; i++){
+    const r = 1 + Math.floor(rnd()*(ROWS-2));
+    const c = 1 + Math.floor(rnd()*(COLS-2));
 
-  for(let i=0;i<130;i++){
+    if(maze[r][c] !== 0) continue;
 
-    const r =
-      1 +
-      Math.floor(
-        rnd()*(ROWS-2)
-      );
-
-    const c =
-      1 +
-      Math.floor(
-        rnd()*(COLS-2)
-      );
-
-
-    if(maze[r][c] !== 0)
-      continue;
-
-
-    const x =
-      cx(c) +
-      (rnd()-0.5)*1.25;
-
-    const z =
-      cz(r) +
-      (rnd()-0.5)*1.25;
-
-
+    const x = cx(c) + (rnd()-0.5)*1.25;
+    const z = cz(r) + (rnd()-0.5)*1.25;
     const type = rnd();
 
-
-    if(type < .42){
-
-      createBush(
-        x,
-        z,
-        .55 + rnd()*.65
-      );
-
-    }
-    else if(type < .75){
-
-      createRock(
-        x,
-        z,
-        .45 + rnd()*.60
-      );
-
-    }
-    else{
-
-      createLog(
-        x,
-        z
-      );
-
-    }
-
+    if(type < .42) createBush(x, z, .55 + rnd()*.65);
+    else if(type < .75) createRock(x, z, .45 + rnd()*.60);
+    else createLog(x, z);
   }
-
 }
-
-
-/* =========================================================
-   GOAL
-========================================================= */
-
 
 /* =========================================================
    POTHOLES
@@ -1621,207 +1077,116 @@ function buildDecorations(){
 
 function createPotholes(){
 
-  potholes=[];
+  potholes = [];
+  const candidates = [];
 
-  const candidates=[];
-
-  for(let r=2;r<ROWS-2;r++){
-    for(let c=2;c<COLS-2;c++){
-      if(maze[r][c]!==0) continue;
-
-      /* Keep important starting/ending areas clear. */
-      if(Math.hypot(r-startCell.r,c-startCell.c)<5) continue;
-      if(Math.hypot(r-goalCell.r,c-goalCell.c)<5) continue;
-
+  for(let r = 2; r < ROWS-2; r++){
+    for(let c = 2; c < COLS-2; c++){
+      if(maze[r][c] !== 0) continue;
+      if(Math.hypot(r-startCell.r, c-startCell.c) < 5) continue;
+      if(Math.hypot(r-goalCell.r, c-goalCell.c) < 5) continue;
       candidates.push({r,c});
     }
   }
 
-  /* Spread the potholes out so they feel like hazards rather than a wall. */
-  const chosen=[];
-  while(candidates.length && chosen.length<20){
-    const i=Math.floor(rnd()*candidates.length);
-    const cell=candidates.splice(i,1)[0];
-    if(chosen.some(p=>Math.hypot(p.r-cell.r,p.c-cell.c)<4)) continue;
+  const chosen = [];
+  while(candidates.length && chosen.length < 20){
+    const i = Math.floor(rnd()*candidates.length);
+    const cell = candidates.splice(i,1)[0];
+    if(chosen.some(p => Math.hypot(p.r-cell.r, p.c-cell.c) < 4)) continue;
     chosen.push(cell);
   }
 
-  const rimMat=new THREE.MeshStandardMaterial({
-    color:0x2a2119,
-    roughness:1
-  });
-
-  const insideMat=new THREE.MeshStandardMaterial({
-    color:0x080706,
-    roughness:1
-  });
-
-  const wetMat=new THREE.MeshStandardMaterial({
-    color:0x151713,
-    roughness:.7,
-    metalness:.05
-  });
+  const rimMat = new THREE.MeshStandardMaterial({ color:0x2a2119, roughness:1 });
+  const insideMat = new THREE.MeshStandardMaterial({ color:0x080706, roughness:1 });
+  const wetMat = new THREE.MeshStandardMaterial({ color:0x151713, roughness:.7, metalness:.05 });
 
   for(const cell of chosen){
+    const g = new THREE.Group();
+    g.position.set(cx(cell.c), 0, cz(cell.r));
 
-    const g=new THREE.Group();
-    g.position.set(cx(cell.c),0,cz(cell.r));
+    const radius = .43 + rnd()*.16;
 
-    const radius=.43+rnd()*.16;
-
-    /* Raised irregular edge */
-    const rim=new THREE.Mesh(
-      new THREE.TorusGeometry(radius,.09,8,14),
-      rimMat
-    );
-    rim.rotation.x=-Math.PI/2;
-    rim.scale.set(1.15,.82,1);
-    rim.position.y=.055;
-    rim.castShadow=true;
-    rim.receiveShadow=true;
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(radius, .09, 8, 14), rimMat);
+    rim.rotation.x = -Math.PI/2;
+    rim.scale.set(1.15, .82, 1);
+    rim.position.y = .055;
+    rim.castShadow = true;
+    rim.receiveShadow = true;
     g.add(rim);
 
-    /* Dark depression */
-    const hole=new THREE.Mesh(
-      new THREE.CylinderGeometry(radius*.82,radius*.68,.10,14),
+    const hole = new THREE.Mesh(
+      new THREE.CylinderGeometry(radius*.82, radius*.68, .10, 14),
       insideMat
     );
-    hole.position.y=.01;
-    hole.scale.y=.55;
-    hole.receiveShadow=true;
+    hole.position.y = .01;
+    hole.scale.y = .55;
+    hole.receiveShadow = true;
     g.add(hole);
 
-    /* A little uneven soil around it */
-    const soil=new THREE.Mesh(
-      new THREE.CircleGeometry(radius+.18,12),
-      wetMat
-    );
-    soil.rotation.x=-Math.PI/2;
-    soil.position.y=.045;
-    soil.scale.set(1.15,.82,1);
-    soil.rotation.z=rnd()*Math.PI;
-    soil.receiveShadow=true;
+    const soil = new THREE.Mesh(new THREE.CircleGeometry(radius + .18, 12), wetMat);
+    soil.rotation.x = -Math.PI/2;
+    soil.position.y = .045;
+    soil.scale.set(1.15, .82, 1);
+    soil.rotation.z = rnd()*Math.PI;
+    soil.receiveShadow = true;
     g.add(soil);
 
     scene.add(g);
-    potholes.push({
-      x:cx(cell.c),
-      z:cz(cell.r),
-      radius:radius*.72,
-      object:g
-    });
+    potholes.push({ x:cx(cell.c), z:cz(cell.r), radius:radius*.9, object:g });
   }
 }
 
 function getPotholeAt(x,z){
   for(const p of potholes){
-    if(Math.hypot(x-p.x,z-p.z)<p.radius) return p;
+    if(Math.hypot(x - p.x, z - p.z) < p.radius) return p;
   }
   return null;
 }
 
-function createGoal(){
-
-  goalObject =
-    new THREE.Group();
-
-
-  goalObject.position.set(
-    cx(goalCell.c),
-    0,
-    cz(goalCell.r)
-  );
-
-
-  /* Stone base */
-
-  const base =
-    new THREE.Mesh(
-      new THREE.CylinderGeometry(
-        .82,
-        .82,
-        .12,
-        16
-      ),
-      new THREE.MeshStandardMaterial({
-        color:0x82694b,
-        roughness:1
-      })
-    );
-
-  base.position.y =
-    .08;
-
-  base.receiveShadow = true;
-
-  goalObject.add(base);
-
-
-  /* Exit marker */
-
-  const beacon =
-    new THREE.Mesh(
-      new THREE.CylinderGeometry(
-        .18,
-        .26,
-        1.4,
-        8
-      ),
-      new THREE.MeshStandardMaterial({
-        color:0xf0d77b,
-        emissive:0x8a6817,
-        emissiveIntensity:1.5
-      })
-    );
-
-  beacon.position.y =
-    .78;
-
-  beacon.castShadow = true;
-
-  goalObject.add(beacon);
-
-
-  const light =
-    new THREE.PointLight(
-      0xffd76a,
-      4,
-      9
-    );
-
-  light.position.y =
-    1.5;
-
-  goalObject.add(light);
-
-
-  scene.add(goalObject);
-
-}
-
-
 /* =========================================================
-   WORLD
+   GOAL MARKER
 ========================================================= */
 
-function buildWorld(){
+function createGoal(){
 
-  buildGround();
+  goalObject = new THREE.Group();
+  goalObject.position.set(cx(goalCell.c), 0, cz(goalCell.r));
 
-  buildPaths();
+  const base = new THREE.Mesh(
+    new THREE.CylinderGeometry(.82, .82, .12, 16),
+    new THREE.MeshStandardMaterial({ color:0x82694b, roughness:1 })
+  );
+  base.position.y = .08;
+  base.receiveShadow = true;
+  goalObject.add(base);
 
-  buildForestWalls();
+  const beacon = new THREE.Mesh(
+    new THREE.CylinderGeometry(.18, .26, 1.4, 8),
+    new THREE.MeshStandardMaterial({
+      color:0xf0d77b, emissive:0x8a6817, emissiveIntensity:1.5
+    })
+  );
+  beacon.position.y = .78;
+  beacon.castShadow = true;
+  goalObject.add(beacon);
 
-  buildDecorations();
+  const light = new THREE.PointLight(0xffd76a, 4, 9);
+  light.position.y = 1.5;
+  goalObject.add(light);
 
-  createPotholes();
-
-  createGoal();
-
-  createGold();
-
+  scene.add(goalObject);
 }
 
+function buildWorld(){
+  buildGround();
+  buildPaths();
+  buildForestWalls();
+  buildDecorations();
+  createPotholes();
+  createGoal();
+  createGold();
+}
 
 /* =========================================================
    GOLD
@@ -1829,150 +1194,116 @@ function buildWorld(){
 
 function getGoldCell(){
 
-  const open=[];
+  const open = [];
 
-  for(let r=1;r<ROWS-1;r++){
-    for(let c=1;c<COLS-1;c++){
-
+  for(let r = 1; r < ROWS-1; r++){
+    for(let c = 1; c < COLS-1; c++){
       if(maze[r][c] !== 0) continue;
-
-      const ds = [
-        Math.hypot(c-startCell.c,r-startCell.r),
-        Math.hypot(c-goalCell.c,r-goalCell.r)
-      ];
-
-      /* Keep the gold away from both ends so it is genuinely hidden. */
-      if(ds[0] < 8 || ds[1] < 8) continue;
-
+      const ds = Math.hypot(c-startCell.c, r-startCell.r);
+      const dg = Math.hypot(c-goalCell.c, r-goalCell.r);
+      if(ds < 8 || dg < 8) continue;
       open.push({r,c});
     }
   }
 
-  if(!open.length){
-    return {r:Math.floor(ROWS/2),c:Math.floor(COLS/2)};
-  }
+  if(!open.length) return { r:Math.floor(ROWS/2), c:Math.floor(COLS/2) };
 
-  /* The existing maze seed makes the gold location repeatable. */
   return open[Math.floor(rnd()*open.length)];
 }
 
 function createGold(){
 
-  goldCell=getGoldCell();
+  goldCell = getGoldCell();
 
-  goldObject=new THREE.Group();
+  goldObject = new THREE.Group();
+  goldObject.position.set(cx(goldCell.c), 0, cz(goldCell.r));
 
-  goldObject.position.set(
-    cx(goldCell.c),
-    0,
-    cz(goldCell.r)
+  const base = new THREE.Mesh(
+    new THREE.CylinderGeometry(.42, .52, .10, 10),
+    new THREE.MeshStandardMaterial({ color:0x3a3022, roughness:1 })
   );
-
-  /* Small stone/grass cover makes the gold feel hidden. */
-  const base=new THREE.Mesh(
-    new THREE.CylinderGeometry(.42,.52,.10,10),
-    new THREE.MeshStandardMaterial({
-      color:0x3a3022,
-      roughness:1
-    })
-  );
-  base.position.y=.06;
-  base.receiveShadow=true;
+  base.position.y = .06;
+  base.receiveShadow = true;
   goldObject.add(base);
 
-  const coinMat=new THREE.MeshStandardMaterial({
-    color:0xffd447,
-    metalness:.75,
-    roughness:.22,
-    emissive:0x8a5d08,
-    emissiveIntensity:.65
-  });
-
-  const coin=new THREE.Mesh(
-    new THREE.CylinderGeometry(.27,.27,.11,18),
-    coinMat
-  );
-  coin.rotation.z=Math.PI/2;
-  coin.position.y=.34;
-  coin.castShadow=true;
-  goldObject.add(coin);
-
-  const gem=new THREE.Mesh(
-    new THREE.OctahedronGeometry(.13),
+  const coin = new THREE.Mesh(
+    new THREE.CylinderGeometry(.27, .27, .11, 18),
     new THREE.MeshStandardMaterial({
-      color:0xffef8a,
-      metalness:.7,
-      roughness:.18,
-      emissive:0xa87512,
-      emissiveIntensity:.8
+      color:0xffd447, metalness:.75, roughness:.22,
+      emissive:0x8a5d08, emissiveIntensity:.65
     })
   );
-  gem.position.y=.58;
-  gem.castShadow=true;
+  coin.rotation.z = Math.PI/2;
+  coin.position.y = .34;
+  coin.castShadow = true;
+  goldObject.add(coin);
+
+  const gem = new THREE.Mesh(
+    new THREE.OctahedronGeometry(.13),
+    new THREE.MeshStandardMaterial({
+      color:0xffef8a, metalness:.7, roughness:.18,
+      emissive:0xa87512, emissiveIntensity:.8
+    })
+  );
+  gem.position.y = .58;
+  gem.castShadow = true;
   goldObject.add(gem);
 
-  const light=new THREE.PointLight(0xffd34d,1.4,4.5);
-  light.position.y=.6;
+  const light = new THREE.PointLight(0xffd34d, 1.4, 4.5);
+  light.position.y = .6;
   goldObject.add(light);
 
   scene.add(goldObject);
-
 }
 
 function updateGoldClue(){
 
-  if(!goldClue || !player || !goldObject || goldCollected){
-    if(goldClue) goldClue.style.display="none";
+  if(!player || !goldObject || goldCollected || gameOver){
+    goldClue.style.display = "none";
     return;
   }
 
-  const dx=goldObject.position.x-player.position.x;
-  const dz=goldObject.position.z-player.position.z;
-  const distance=Math.hypot(dx,dz);
+  const dx = goldObject.position.x - player.position.x;
+  const dz = goldObject.position.z - player.position.z;
+  const distance = Math.hypot(dx, dz);
 
   if(distance < 1.35){
     collectGold();
     return;
   }
 
-  goldClue.style.display="block";
+  goldClue.style.display = "block";
 
-  const arrow=$("goldArrow");
-  if(arrow){
-    /*
-      With the existing top-down camera, +X is screen-right and
-      -Z is screen-up. atan2(dx,-dz) therefore points the arrow
-      toward the gold on screen.
-    */
-    const angle=Math.atan2(dx,-dz);
-    arrow.style.transform="rotate("+angle+"rad)";
-  }
+  /* +X is screen-right and -Z is screen-up with this camera,
+     so atan2(dx,-dz) points the arrow at the gold. */
+  goldArrow.style.transform = "rotate(" + Math.atan2(dx, -dz) + "rad)";
 
-  if(distance < 5){
-    goldClue.firstChild.textContent="🪙 Gold is very close ";
-  }else{
-    goldClue.firstChild.textContent="🪙 Gold is available ";
-  }
-
+  goldClue.firstChild.textContent = distance < 5 ? "🪙 Gold is very close " : "🪙 Gold is somewhere ahead ";
 }
 
 function collectGold(){
 
   if(goldCollected || !goldObject) return;
 
-  goldCollected=true;
-  goldObject.visible=false;
-  goldClue.style.display="none";
+  goldCollected = true;
+  goldObject.visible = false;
+  goldClue.style.display = "none";
 
-  status.textContent="🏆 GOLD FOUND! You win!";
-  distanceEl.textContent="Gold collected";
-  visibility.textContent="WINNER";
-  visibility.style.color="#ffd75e";
+  statusEl.textContent = "🏆 Gold found — you win";
+  distanceEl.textContent = "Gold collected";
+  visibility.textContent = "WINNER";
+  visibility.style.color = "#ffd75e";
 
-  gameOver=true;
+  gameOver = true;
+  updateAmmoDisplay();
+
   if(multiplayer && networkChannel && networkReady && !goldWinBroadcast){
-    goldWinBroadcast=true;
-    networkChannel.send({type:"broadcast",event:"gold",payload:{type:"collected",playerId,timestamp:Date.now()}});
+    goldWinBroadcast = true;
+    networkChannel.send({
+      type:"broadcast",
+      event:"gold",
+      payload:{ type:"collected", playerId, timestamp:Date.now() }
+    });
   }
 }
 
@@ -1982,597 +1313,550 @@ function collectGold(){
 
 function createPlayer(){
 
-  player =
-    new THREE.Group();
+  player = new THREE.Group();
+  player.position.set(cx(startCell.c), 0, cz(startCell.r));
 
+  const skin  = new THREE.MeshStandardMaterial({ color:0xc58f6c, roughness:.8 });
+  const shirt = new THREE.MeshStandardMaterial({ color:0x3e8056, roughness:.8 });
+  const pants = new THREE.MeshStandardMaterial({ color:0x26323a, roughness:.9 });
+  const hair  = new THREE.MeshStandardMaterial({ color:0x211914, roughness:1 });
 
-  player.position.set(
-    cx(startCell.c),
-    0,
-    cz(startCell.r)
-  );
-
-
-  const skin =
-    new THREE.MeshStandardMaterial({
-      color:0xc58f6c,
-      roughness:.8
-    });
-
-  const shirt =
-    new THREE.MeshStandardMaterial({
-      color:0x3e8056,
-      roughness:.8
-    });
-
-  const pants =
-    new THREE.MeshStandardMaterial({
-      color:0x26323a,
-      roughness:.9
-    });
-
-  const hair =
-    new THREE.MeshStandardMaterial({
-      color:0x211914,
-      roughness:1
-    });
-
-
-  /* Body */
-
-  const body =
-    new THREE.Mesh(
-      new THREE.CapsuleGeometry(
-        .28,
-        .62,
-        6,
-        10
-      ),
-      shirt
-    );
-
-  body.position.y =
-    1.05;
-
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(.28, .62, 6, 10), shirt);
+  body.position.y = 1.05;
   body.castShadow = true;
-
   player.add(body);
 
-
-  /* Head */
-
-  const head =
-    new THREE.Mesh(
-      new THREE.SphereGeometry(
-        .24,
-        16,
-        12
-      ),
-      skin
-    );
-
-  head.position.y =
-    1.82;
-
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.24, 16, 12), skin);
+  head.position.y = 1.82;
   head.castShadow = true;
-
   player.add(head);
 
-
-  /* Hair */
-
-  const hairMesh =
-    new THREE.Mesh(
-      new THREE.SphereGeometry(
-        .255,
-        14,
-        8
-      ),
-      hair
-    );
-
-  hairMesh.position.y =
-    1.94;
-
-  hairMesh.scale.y =
-    .55;
-
+  const hairMesh = new THREE.Mesh(new THREE.SphereGeometry(.255, 14, 8), hair);
+  hairMesh.position.y = 1.94;
+  hairMesh.scale.y = .55;
   hairMesh.castShadow = true;
-
   player.add(hairMesh);
 
-
-  /* Arms */
-
   for(const side of [-1,1]){
-
-    const arm =
-      new THREE.Mesh(
-        new THREE.CapsuleGeometry(
-          .075,
-          .48,
-          5,
-          8
-        ),
-        shirt
-      );
-
-    arm.position.set(
-      side*.36,
-      1.07,
-      0
-    );
-
-    arm.rotation.z =
-      side*.16;
-
+    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(.075, .48, 5, 8), shirt);
+    arm.position.set(side*.36, 1.07, 0);
+    arm.rotation.z = side*.16;
     arm.castShadow = true;
-
     player.add(arm);
 
-  }
-
-
-  /* Legs */
-
-  for(const side of [-1,1]){
-
-    const leg =
-      new THREE.Mesh(
-        new THREE.CapsuleGeometry(
-          .09,
-          .50,
-          5,
-          8
-        ),
-        pants
-      );
-
-    leg.position.set(
-      side*.12,
-      .45,
-      0
-    );
-
+    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(.09, .50, 5, 8), pants);
+    leg.position.set(side*.12, .45, 0);
     leg.castShadow = true;
-
     player.add(leg);
-
   }
 
-
-  /* Small visible marker */
-
-  const marker =
-    new THREE.Mesh(
-      new THREE.SphereGeometry(
-        .055,
-        8,
-        8
-      ),
-      new THREE.MeshBasicMaterial({
-        color:0xffd75e
-      })
-    );
-
-  marker.position.y =
-    2.2;
-
+  const marker = new THREE.Mesh(
+    new THREE.SphereGeometry(.055, 8, 8),
+    new THREE.MeshBasicMaterial({ color:0xffd75e })
+  );
+  marker.position.y = 2.2;
   player.add(marker);
 
-
   scene.add(player);
-
 }
 
+/* Movement, collision and pothole slowdown. */
+function updatePlayer(dt){
+
+  if(!player || gameOver) return;
+
+  let dx = 0, dz = 0;
+
+  if(keys.arrowup    || keys.w) dz -= 1;
+  if(keys.arrowdown  || keys.s) dz += 1;
+  if(keys.arrowleft  || keys.a) dx -= 1;
+  if(keys.arrowright || keys.d) dx += 1;
+
+  if(dx === 0 && dz === 0) return;
+
+  const len = Math.hypot(dx, dz);
+  dx /= len;
+  dz /= len;
+
+  let speed = PLAYER_SPEED;
+
+  if(getPotholeAt(player.position.x, player.position.z)){
+    speed *= 0.38;
+    const now = performance.now();
+    if(now > hazardMessageUntil){
+      hazardMessageUntil = now + 1600;
+      statusEl.textContent = "🕳️ Pothole — you are slowed";
+    }
+  }
+
+  const step = speed * dt;
+  const nextX = player.position.x + dx * step;
+  const nextZ = player.position.z + dz * step;
+
+  /* Axes are tested separately so the player slides along walls. */
+  if(canWalk(nextX, player.position.z)) player.position.x = nextX;
+  if(canWalk(player.position.x, nextZ)) player.position.z = nextZ;
+
+  player.rotation.y = Math.atan2(dx, dz);
+}
 
 /* =========================================================
-   COLLISION
+   CAMERA
 ========================================================= */
 
+function updateCamera(dt){
+
+  if(!camera || !player) return;
+
+  /* dt >= 1 means snap (used once at startup). */
+  const ease = dt >= 1 ? 1 : 1 - Math.pow(0.0015, dt);
+
+  camFocus.x += (player.position.x - camFocus.x) * ease;
+  camFocus.z += (player.position.z - camFocus.z) * ease;
+
+  camera.position.set(camFocus.x, 38, camFocus.z + 13);
+  camera.lookAt(camFocus.x, 0, camFocus.z);
+}
 
 /* =========================================================
-   HIDER / COMPUTER
+   HIDER (single player opponent)
 ========================================================= */
 
 function createHider(){
-  hider=new THREE.Group();
-  // Multiplayer uses fixed, deterministic spawn cells:
-  // Hunter = maze entrance, Hider = maze exit. This guarantees the two
-  // devices never start on the same cell and both calculate the same result.
-  if(multiplayer){
-    hiderCell = {r:goalCell.r,c:goalCell.c};
-  }else{
-    const candidates=[];
-    for(let r=1;r<ROWS-1;r++) for(let c=1;c<COLS-1;c++){
-      if(maze[r][c]!==0) continue;
-      const ds=Math.hypot(r-startCell.r,c-startCell.c);
-      const dg=Math.hypot(r-goalCell.r,c-goalCell.c);
-      if(ds>18 && dg>8) candidates.push({r,c});
-    }
-    hiderCell=candidates.length?candidates[Math.floor(rnd()*candidates.length)]:{r:Math.floor(ROWS/2),c:Math.floor(COLS/2)};
-  }
-  hider.position.set(cx(hiderCell.c),0,cz(hiderCell.r));
 
-  const skin=new THREE.MeshStandardMaterial({color:0xb97859,roughness:.85});
-  const shirt=new THREE.MeshStandardMaterial({color:0x9b3d47,roughness:.85});
-  const pants=new THREE.MeshStandardMaterial({color:0x20262d,roughness:.95});
-  const hair=new THREE.MeshStandardMaterial({color:0x171311,roughness:1});
-  const body=new THREE.Mesh(new THREE.CapsuleGeometry(.28,.62,6,10),shirt); body.position.y=1.05; body.castShadow=true; hider.add(body);
-  const head=new THREE.Mesh(new THREE.SphereGeometry(.24,16,12),skin); head.position.y=1.82; head.castShadow=true; hider.add(head);
-  const ht=new THREE.Mesh(new THREE.SphereGeometry(.255,14,8),hair); ht.position.y=1.94; ht.scale.y=.55; ht.castShadow=true; hider.add(ht);
-  for(const side of[-1,1]){
-    const arm=new THREE.Mesh(new THREE.CapsuleGeometry(.075,.48,5,8),shirt); arm.position.set(side*.36,1.07,0); arm.rotation.z=side*.16; arm.castShadow=true; hider.add(arm);
-    const leg=new THREE.Mesh(new THREE.CapsuleGeometry(.09,.5,5,8),pants); leg.position.set(side*.12,.45,0); leg.castShadow=true; hider.add(leg);
+  hider = new THREE.Group();
+
+  const candidates = [];
+  for(let r = 1; r < ROWS-1; r++){
+    for(let c = 1; c < COLS-1; c++){
+      if(maze[r][c] !== 0) continue;
+      const ds = Math.hypot(r-startCell.r, c-startCell.c);
+      const dg = Math.hypot(r-goalCell.r, c-goalCell.c);
+      if(ds > 18 && dg > 8) candidates.push({r,c});
+    }
   }
-  const marker=new THREE.Mesh(new THREE.SphereGeometry(.07,10,8),new THREE.MeshBasicMaterial({color:0xff5d5d})); marker.position.y=2.18; hider.add(marker);
-  hider.visible=false; scene.add(hider); if(!multiplayer || role === "hunter") chooseHiderMove(true);
+
+  hiderCell = candidates.length
+    ? candidates[Math.floor(rnd()*candidates.length)]
+    : { r:Math.floor(ROWS/2), c:Math.floor(COLS/2) };
+
+  hider.position.set(cx(hiderCell.c), 0, cz(hiderCell.r));
+
+  const skin  = new THREE.MeshStandardMaterial({ color:0xb97859, roughness:.85 });
+  const shirt = new THREE.MeshStandardMaterial({ color:0x9b3d47, roughness:.85 });
+  const pants = new THREE.MeshStandardMaterial({ color:0x20262d, roughness:.95 });
+  const hair  = new THREE.MeshStandardMaterial({ color:0x171311, roughness:1 });
+
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(.28,.62,6,10), shirt);
+  body.position.y = 1.05; body.castShadow = true; hider.add(body);
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.24,16,12), skin);
+  head.position.y = 1.82; head.castShadow = true; hider.add(head);
+
+  const ht = new THREE.Mesh(new THREE.SphereGeometry(.255,14,8), hair);
+  ht.position.y = 1.94; ht.scale.y = .55; ht.castShadow = true; hider.add(ht);
+
+  for(const side of [-1,1]){
+    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(.075,.48,5,8), shirt);
+    arm.position.set(side*.36, 1.07, 0);
+    arm.rotation.z = side*.16;
+    arm.castShadow = true;
+    hider.add(arm);
+
+    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(.09,.5,5,8), pants);
+    leg.position.set(side*.12, .45, 0);
+    leg.castShadow = true;
+    hider.add(leg);
+  }
+
+  const marker = new THREE.Mesh(
+    new THREE.SphereGeometry(.07,10,8),
+    new THREE.MeshBasicMaterial({ color:0xff5d5d })
+  );
+  marker.position.y = 2.18;
+  hider.add(marker);
+
+  hider.visible = false;
+  scene.add(hider);
+
+  chooseHiderMove();
 }
 
-function cellFromWorld(x,z){return{r:Math.round(z/CELL+(ROWS-1)/2),c:Math.round(x/CELL+(COLS-1)/2)};}
+/* Picks the next cell for the opponent, usually away from the player. */
+function chooseHiderMove(){
 
-function clearLineOfSight(ax,az,bx,bz,maxDistance=12){
+  if(!hider || !hiderCell) return;
+
+  const options = [];
+  const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+
+  for(const d of dirs){
+    const r = hiderCell.r + d[0];
+    const c = hiderCell.c + d[1];
+    if(r < 1 || r >= ROWS-1 || c < 1 || c >= COLS-1) continue;
+    if(maze[r][c] !== 0) continue;
+    options.push({r,c});
+  }
+
+  if(!options.length){
+    hiderTarget = null;
+    hiderMoveTimer = 0.5;
+    return;
+  }
+
+  let best = options[Math.floor(rnd()*options.length)];
+
+  /* Most of the time it flees; sometimes it wanders, so it is not predictable. */
+  if(player && rnd() > 0.28){
+    let bestDistance = -1;
+    for(const o of options){
+      const d = Math.hypot(cx(o.c) - player.position.x, cz(o.r) - player.position.z);
+      if(d > bestDistance){ bestDistance = d; best = o; }
+    }
+  }
+
+  hiderTarget = best;
+}
+
+function updateHider(dt){
+
+  if(multiplayer || !hider || gameOver || hiderFound) return;
+
+  if(!hiderTarget){
+    hiderMoveTimer -= dt;
+    if(hiderMoveTimer <= 0) chooseHiderMove();
+    return;
+  }
+
+  const tx = cx(hiderTarget.c);
+  const tz = cz(hiderTarget.r);
+  const dx = tx - hider.position.x;
+  const dz = tz - hider.position.z;
+  const distance = Math.hypot(dx, dz);
+  const step = HIDER_SPEED * dt;
+
+  if(distance <= step){
+    hider.position.set(tx, 0, tz);
+    hiderCell = { r:hiderTarget.r, c:hiderTarget.c };
+    hiderTarget = null;
+    hiderMoveTimer = 0.1 + rnd()*0.35;
+  }else{
+    hider.position.x += dx / distance * step;
+    hider.position.z += dz / distance * step;
+    hider.rotation.y = Math.atan2(dx, dz);
+  }
+}
+
+/* =========================================================
+   VISION
+========================================================= */
+
+function clearLineOfSight(ax, az, bx, bz, maxDistance){
 
   const dx = bx - ax;
   const dz = bz - az;
-  const dist = Math.hypot(dx,dz);
+  const dist = Math.hypot(dx, dz);
 
-  // Normal vision / Flash range
-  if(dist > maxDistance)
-    return false;
+  if(dist > maxDistance) return false;
 
   const steps = Math.ceil(dist / .18);
 
-  for(let i=1;i<steps;i++){
-
+  for(let i = 1; i < steps; i++){
     const t = i / steps;
-
-    const x = ax + dx * t;
-    const z = az + dz * t;
-
-    const p = cellFromWorld(x,z);
-
-    if(
-      p.r < 0 ||
-      p.r >= ROWS ||
-      p.c < 0 ||
-      p.c >= COLS ||
-      maze[p.r][p.c] === 1
-    ){
-      return false;
-    }
+    const p = cellFromWorld(ax + dx*t, az + dz*t);
+    if(!isOpenCell(p.r, p.c)) return false;
   }
 
   return true;
 }
 
-function updateHiderVisibility(){
-  if(!player || hiderFound) return;
+function currentVision(){
+  return flashActive ? FLASH_VISION : NORMAL_VISION;
+}
 
-  let best=null;
+function updateHiderVisibility(){
+
+  if(!player || gameOver) return;
+
+  const vision = currentVision();
 
   if(!multiplayer){
     if(!hider) return;
-    const distance=Math.hypot(hider.position.x-player.position.x,hider.position.z-player.position.z);
-    const visible=clearLineOfSight(player.position.x,player.position.z,hider.position.x,hider.position.z,NORMAL_VISION);
-    hiderVisible=visible;
-    hider.visible=visible;
-    if(visible && distance<=16) best={entry:{id:"computer",object:hider,active:true},distance};
 
-    shootBtn.classList.toggle("ready",!!best && canShoot());
-    shootBtn.style.display=(bullets>0 && !gameOver)?"block":"none";
-    if(best){
-      visibility.textContent=canShoot()?"🎯 AIM ON TARGET":"👁️ VISIBLE";
-      visibility.style.color=canShoot()?"#ff6b6b":"#f4d66d";
-      distanceEl.textContent="Opponent: "+Math.max(1,Math.round(distance/2))+" m";
-    }else{
-      visibility.textContent=visible?"👁️ VISIBLE":"Hidden";
-      visibility.style.color=visible?"#f4d66d":"#b9c8bc";
-      distanceEl.textContent=visible?"Opponent: "+Math.max(1,Math.round(distance/2))+" m":"Opponent: ?";
+    if(hiderFound){
+      hider.visible = true;
+      return;
     }
+
+    const distance = Math.hypot(
+      hider.position.x - player.position.x,
+      hider.position.z - player.position.z
+    );
+
+    const visible = clearLineOfSight(
+      player.position.x, player.position.z,
+      hider.position.x, hider.position.z,
+      vision
+    );
+
+    hider.visible = visible;
+
+    const ready = canShoot();
+    shootBtn.classList.toggle("ready", ready);
+
+    if(visible){
+      visibility.textContent = ready ? "🎯 Aim on target" : "👁️ Visible";
+      visibility.style.color = ready ? "#ff6b6b" : "#f4d66d";
+      distanceEl.textContent = "Opponent: " + Math.max(1, Math.round(distance/2)) + " m";
+    }else{
+      visibility.textContent = "Hidden";
+      visibility.style.color = "#b9c8bc";
+      distanceEl.textContent = "Opponent: ?";
+    }
+
     updateAmmoDisplay();
     return;
   }
 
+  let best = null;
+
   for(const entry of remotePlayers.values()){
     if(!entry.active) continue;
-    const dx=entry.object.position.x-player.position.x;
-    const dz=entry.object.position.z-player.position.z;
-    const distance=Math.hypot(dx,dz);
-    const visible=clearLineOfSight(player.position.x,player.position.z,entry.object.position.x,entry.object.position.z,16);
-    entry.object.visible=visible;
-    if(visible && (!best || distance<best.distance)) best={entry,distance};
+    const dx = entry.object.position.x - player.position.x;
+    const dz = entry.object.position.z - player.position.z;
+    const distance = Math.hypot(dx, dz);
+    const visible = clearLineOfSight(
+      player.position.x, player.position.z,
+      entry.object.position.x, entry.object.position.z,
+      vision
+    );
+    entry.object.visible = visible;
+    if(visible && (!best || distance < best.distance)) best = { entry, distance };
   }
 
-  targetPlayerId=best?best.entry.id:null;
-  hider=best?best.entry.object:null;
-  const ready=!!best && canShoot();
-  shootBtn.classList.toggle("ready",ready);
-  shootBtn.style.display=(bullets>0 && !gameOver)?"block":"none";
+  targetPlayerId = best ? best.entry.id : null;
+  hider = best ? best.entry.object : null;
+
+  const ready = canShoot();
+  shootBtn.classList.toggle("ready", ready);
 
   if(best){
-    visibility.textContent=ready?"🎯 AIM ON TARGET":"👁️ VISIBLE";
-    visibility.style.color=ready?"#ff6b6b":"#f4d66d";
-    distanceEl.textContent="Player: "+Math.max(1,Math.round(best.distance/2))+" m";
+    visibility.textContent = ready ? "🎯 Aim on target" : "👁️ Visible";
+    visibility.style.color = ready ? "#ff6b6b" : "#f4d66d";
+    distanceEl.textContent = "Player: " + Math.max(1, Math.round(best.distance/2)) + " m";
   }else{
-    visibility.textContent="Searching";
-    visibility.style.color="#b9c8bc";
-    distanceEl.textContent="Players: "+remotePlayers.size;
+    visibility.textContent = "Searching";
+    visibility.style.color = "#b9c8bc";
+    distanceEl.textContent = "Players nearby: " + remotePlayers.size;
   }
 
-  for(const [id,entry] of remotePlayers){
-    if(performance.now()-entry.lastSeen>6000) removeRemotePlayer(id);
+  for(const [id, entry] of remotePlayers){
+    if(performance.now() - entry.lastSeen > 6000) removeRemotePlayer(id);
   }
+
   updateAmmoDisplay();
 }
+
+/* =========================================================
+   FLASH
+========================================================= */
 
 function flash(){
 
   if(!player || gameOver) return;
 
-  // Both multiplayer players have the same equipment.
-
-  const now=performance.now();
+  const now = performance.now();
 
   if(now < flashCooldownUntil){
-    const remaining=Math.ceil((flashCooldownUntil-now)/1000);
-    status.textContent="🔦 Flash recharging... "+remaining+"s";
+    statusEl.textContent = "🔦 Flash recharging — " + Math.ceil((flashCooldownUntil-now)/1000) + "s";
     return;
   }
 
-  flashActive=true;
-  flashUntil=now+FLASH_DURATION;
-  flashCooldownUntil=now+FLASH_COOLDOWN;
+  flashActive = true;
+  flashUntil = now + FLASH_DURATION;
+  flashCooldownUntil = now + FLASH_COOLDOWN;
 
   if(flashLight) scene.remove(flashLight);
 
-  flashLight=new THREE.PointLight(0xfff2c2,42,26,2);
-  flashLight.position.set(player.position.x,4,player.position.z);
+  flashLight = new THREE.PointLight(0xfff2c2, 42, 26, 2);
+  flashLight.position.set(player.position.x, 4, player.position.z);
   scene.add(flashLight);
 
-  status.textContent="🔦 Flash active — search for the opponent";
+  statusEl.textContent = "🔦 Flash on — look around";
+}
 
-  setTimeout(function(){
+function updateFlash(){
+
+  if(!flashActive) return;
+
+  if(performance.now() >= flashUntil){
+    flashActive = false;
     if(flashLight){
       scene.remove(flashLight);
-      flashLight=null;
+      flashLight = null;
     }
-  },FLASH_DURATION);
+    return;
+  }
+
+  if(flashLight && player){
+    flashLight.position.set(player.position.x, 3, player.position.z);
+  }
 }
+
+/* =========================================================
+   SHOOTING
+========================================================= */
 
 function canShoot(){
 
   if(!player || !hider || hiderFound || gameOver) return false;
 
-  const dx=hider.position.x-player.position.x;
-  const dz=hider.position.z-player.position.z;
-  const distance=Math.hypot(dx,dz);
+  const dx = hider.position.x - player.position.x;
+  const dz = hider.position.z - player.position.z;
+  const distance = Math.hypot(dx, dz);
 
-  /* The opponent must be close enough to make a meaningful shot. */
-  if(distance>16) return false;
+  if(distance > 16) return false;
 
-  /* The opponent must be visible through the maze. */
   if(!clearLineOfSight(
-    player.position.x,
-    player.position.z,
-    hider.position.x,
-    hider.position.z,
+    player.position.x, player.position.z,
+    hider.position.x, hider.position.z,
     16
   )) return false;
 
-  /* Require the player to be facing the opponent. */
-  const playerAngle=player.rotation.y;
-  const targetAngle=Math.atan2(dx,dz);
+  let diff = Math.atan2(dx, dz) - player.rotation.y;
+  while(diff >  Math.PI) diff -= Math.PI*2;
+  while(diff < -Math.PI) diff += Math.PI*2;
 
-  let diff=targetAngle-playerAngle;
-  while(diff>Math.PI) diff-=Math.PI*2;
-  while(diff<-Math.PI) diff+=Math.PI*2;
-
-  return Math.abs(diff)<0.42;
+  return Math.abs(diff) < 0.42;
 }
 
 function shoot(){
+
   if(!player || gameOver) return;
   if(multiplayer && !networkReady) return;
-  if(bullets<=0){
-    status.textContent="🔫 Out of bullets!";
+
+  if(bullets <= 0){
+    statusEl.textContent = "🔫 Out of bullets";
     updateAmmoDisplay();
     return;
   }
 
-  // Every trigger pull consumes one bullet, even if nobody is in sight.
+  /* Every trigger pull costs a bullet, hit or miss. */
   bullets--;
-  shotCount++;
-  shotCooldownUntil=performance.now()+350;
   updateAmmoDisplay();
 
-  if(!targetPlayerId || !canShoot()){
-    status.textContent="💥 Shot fired — missed!";
+  const hit = canShoot();
+
+  if(!hit){
+    statusEl.textContent = "💥 Shot fired — missed";
     shootBtn.classList.remove("ready");
     return;
   }
 
-  const targetId=targetPlayerId;
-  const target=remotePlayers.get(targetId);
-  if(target){
-    target.active=false;
-    target.object.visible=false;
-  }
+  const hitPosition = hider.position.clone();
 
-  if(multiplayer && networkChannel){
-    networkChannel.send({
-      type:"broadcast",
-      event:"hit",
-      payload:{shooterId:playerId,targetId,timestamp:Date.now()}
-    });
-    status.textContent="🎯 HIT! Player caught!";
+  if(multiplayer){
+    const targetId = targetPlayerId;
+    const target = targetId ? remotePlayers.get(targetId) : null;
+
+    if(target){
+      target.active = false;
+      target.object.visible = false;
+    }
+
+    if(networkChannel){
+      networkChannel.send({
+        type:"broadcast",
+        event:"hit",
+        payload:{ shooterId:playerId, targetId, timestamp:Date.now() }
+      });
+    }
+
+    statusEl.textContent = "🎯 Hit — player caught";
+    distanceEl.textContent = "Player caught";
   }else{
-    hiderFound=true;
-    gameOver=true;
-    if(hider) hider.visible=true;
-    status.textContent="🎯 HIT! You caught the opponent!";
+    hiderFound = true;
+    gameOver = true;
+    hider.visible = true;
+    statusEl.textContent = "🎯 Hit — you caught the opponent";
+    distanceEl.textContent = "Opponent caught";
   }
 
-  distanceEl.textContent="Player caught";
-  visibility.textContent="CAUGHT";
-  visibility.style.color="#ff6b6b";
+  visibility.textContent = "CAUGHT";
+  visibility.style.color = "#ff6b6b";
   shootBtn.classList.remove("ready");
   updateAmmoDisplay();
 
-  const hitLight=new THREE.PointLight(0xff4444,28,10,2);
-  if(target) hitLight.position.copy(target.object.position);
-  else if(hider) hitLight.position.copy(hider.position);
+  const hitLight = new THREE.PointLight(0xff4444, 28, 10, 2);
+  hitLight.position.copy(hitPosition);
   scene.add(hitLight);
-  setTimeout(()=>scene.remove(hitLight),450);
+  setTimeout(() => scene.remove(hitLight), 450);
 }
 
-shootBtn.addEventListener("click",function(e){
+shootBtn.addEventListener("click", function(e){
   e.preventDefault();
   shoot();
 });
 
+flashBtn.addEventListener("click", function(e){
+  e.preventDefault();
+  flash();
+});
 
 /* =========================================================
-   KEYBOARD
+   INPUT
 ========================================================= */
 
-window.addEventListener(
-  "keydown",
-  function(e){
+window.addEventListener("keydown", function(e){
+  const key = e.key.toLowerCase();
+  keys[key] = true;
 
-    const key =
-      e.key.toLowerCase();
+  if(["arrowup","arrowdown","arrowleft","arrowright"," "].includes(key)) e.preventDefault();
 
-    keys[key] = true;
+  if(!started) return;
+  if(key === "f") flash();
+  if(key === " ") shoot();
+});
 
+window.addEventListener("keyup", function(e){
+  keys[e.key.toLowerCase()] = false;
+});
 
-    if([
-      "arrowup",
-      "arrowdown",
-      "arrowleft",
-      "arrowright",
-      " "
-    ].includes(key)){
+function bindControl(id, key){
+  const button = $(id);
 
-      e.preventDefault();
+  function down(e){ e.preventDefault(); keys[key] = true; }
+  function up(e){ e.preventDefault(); keys[key] = false; }
 
-    }
-
-  }
-);
-
-
-window.addEventListener(
-  "keyup",
-  function(e){
-
-    keys[
-      e.key.toLowerCase()
-    ] = false;
-
-  }
-);
-
-
-/* =========================================================
-   MOBILE BUTTONS
-========================================================= */
-
-function bindControl(id,key){
-
-  const button =
-    $(id);
-
-
-  function down(e){
-
-    e.preventDefault();
-
-    keys[key] = true;
-
-  }
-
-
-  function up(e){
-
-    e.preventDefault();
-
-    keys[key] = false;
-
-  }
-
-
-  button.addEventListener(
-    "pointerdown",
-    down
-  );
-
-  button.addEventListener(
-    "pointerup",
-    up
-  );
-
-  button.addEventListener(
-    "pointercancel",
-    up
-  );
-
-  button.addEventListener(
-    "pointerleave",
-    up
-  );
-
+  button.addEventListener("pointerdown", down);
+  button.addEventListener("pointerup", up);
+  button.addEventListener("pointercancel", up);
+  button.addEventListener("pointerleave", up);
 }
-
 
 bindControl("up","arrowup");
 bindControl("down","arrowdown");
 bindControl("left","arrowleft");
 bindControl("right","arrowright");
 
-
 /* =========================================================
    RESIZE
 ========================================================= */
 
-window.addEventListener(
-  "resize",
-  function(){
+window.addEventListener("resize", function(){
+  if(!camera || !renderer) return;
 
-    if(!camera || !renderer)
-      return;
+  const aspect = innerWidth / innerHeight;
+  const view = 23;
 
+  camera.left = -view*aspect;
+  camera.right = view*aspect;
+  camera.top = view;
+  camera.bottom = -view;
+  camera.updateProjectionMatrix();
 
-    const aspect =
-      innerWidth / innerHeight;
-
-    const view = 23;
-
-
-    camera.left =
-      -view*aspect;
-
-    camera.right =
-      view*aspect;
-
-    camera.top =
-      view;
-
-    camera.bottom =
-      -view;
-
-
-    camera.updateProjectionMatrix();
-
-
-    renderer.setSize(
-      innerWidth,
-      innerHeight
-    );
-
-  }
-);
-
+  renderer.setSize(innerWidth, innerHeight);
+});
 
 /* =========================================================
    GAME LOOP
@@ -2582,58 +1866,43 @@ function loop(){
 
   requestAnimationFrame(loop);
 
-
-  const dt =
-    Math.min(
-      clock.getDelta(),
-      .05
-    );
-
+  const dt = Math.min(clock.getDelta(), .05);
 
   updatePlayer(dt);
   updateHider(dt);
+  updateFlash();
   updateHiderVisibility();
   updateGoldClue();
-
   updateCamera(dt);
 
-
-  if(
-    flashLight &&
-    player
-  ){
-
-    flashLight.position.set(
-      player.position.x,
-      3,
-      player.position.z
-    );
-
+  if(multiplayer && networkChannel && networkReady && player && performance.now() - lastNetworkSend > 50){
+    lastNetworkSend = performance.now();
+    networkChannel.send({
+      type:"broadcast",
+      event:"state",
+      payload:{
+        playerId,
+        x: player.position.x,
+        z: player.position.z,
+        ry: player.rotation.y,
+        active: !gameOver
+      }
+    });
   }
 
-  if(multiplayer && networkChannel && player && performance.now()-lastNetworkSend>50){
-    lastNetworkSend=performance.now();
-    networkChannel.send({type:"broadcast",event:"state",payload:{playerId,x:player.position.x,z:player.position.z,ry:player.rotation.y,active:!gameOver}});
-  }
-
-  renderer.render(
-    scene,
-    camera
-  );
-
+  renderer.render(scene, camera);
 }
-
 
 })();
 </script>
 
 <script>
-window.addEventListener("error",function(e){
-  const s=document.getElementById("start");
-  const i=document.getElementById("roomInfo");
-  if(s && !started){
+window.addEventListener("error", function(e){
+  const s = document.getElementById("start");
+  const i = document.getElementById("roomInfo");
+  if(s && !window.__goldHuntStarted){
     s.classList.remove("hidden");
-    if(i) i.textContent="Game error: "+(e.message||"Unknown JavaScript error");
+    if(i) i.textContent = "Game error: " + (e.message || "unknown JavaScript error");
   }
 });
 </script>
