@@ -502,8 +502,23 @@ canvas{display:block;width:100%;height:100%}
 </div>
 
 <div id="topControls">
-  <button id="saveBtn" class="topBtn" type="button">💾 Save</button>
-  <button id="exitBtn" class="topBtn" type="button">✕ Exit</button>
+
+  <button id="optionsBtn" type="button">
+    ☰ Options
+  </button>
+
+  <div id="optionsMenu">
+
+    <button id="saveBtn" class="topBtn" type="button">
+      💾 Save Game
+    </button>
+
+    <button id="exitBtn" class="topBtn" type="button">
+      🚪 Exit Game
+    </button>
+
+  </div>
+
 </div>
 
 <div id="confirmOverlay">
@@ -583,6 +598,8 @@ const continueBtn = $("continueBtn");
 const topControls = $("topControls");
 const saveBtn = $("saveBtn");
 const exitBtn = $("exitBtn");
+const optionsBtn = $("optionsBtn");
+const optionsMenu = $("optionsMenu");
 const confirmOverlay = $("confirmOverlay");
 const confirmYes = $("confirmYes");
 const confirmNo = $("confirmNo");
@@ -1464,7 +1481,20 @@ async function exitToMenu(){
   refreshContinueButton();
 }
 
+optionsBtn.addEventListener("click", function(e){
+  e.stopPropagation();
+  optionsMenu.classList.toggle("show");
+});
+
+document.addEventListener("click", function(){
+  optionsMenu.classList.remove("show");
+});
+
+optionsMenu.addEventListener("click", function(e){
+  e.stopPropagation();
+});
 exitBtn.addEventListener("click", function(){
+  optionsMenu.classList.remove("show");
   paused = true;
   confirmOverlay.classList.add("show");
 });
@@ -1479,7 +1509,10 @@ confirmYes.addEventListener("click", function(){
   exitToMenu();
 });
 
-saveBtn.addEventListener("click", () => saveProgress(false));
+saveBtn.addEventListener("click", () => {
+  optionsMenu.classList.remove("show");
+  saveProgress(false);
+});
 
 function startLevel(n){
 
