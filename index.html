@@ -178,7 +178,7 @@ canvas{display:block;width:100%;height:100%}
 
 #topControls{
   position:fixed;
-  top:12px;
+  top:104px;
   right:12px;
   z-index:30;
   display:none;
@@ -538,6 +538,27 @@ const exitBtn = $("exitBtn");
 const confirmOverlay = $("confirmOverlay");
 const confirmYes = $("confirmYes");
 const confirmNo = $("confirmNo");
+
+/* =========================================================
+   HUD LAYOUT
+   The HUD's leftmost box grows to 2 or 3 lines depending on the
+   level name and status text, and both #hud and #topControls are
+   position:fixed at the same top offset — so Save/Exit have to be
+   pushed down by the HUD's *actual* rendered height, which varies,
+   rather than a guessed pixel value that only fit one phone size.
+========================================================= */
+
+function positionTopControls(){
+  if(!hud || !topControls) return;
+  const rect = hud.getBoundingClientRect();
+  if(rect.height > 0) topControls.style.top = (rect.bottom + 8) + "px";
+}
+
+if(window.ResizeObserver){
+  new ResizeObserver(positionTopControls).observe(hud);
+}
+window.addEventListener("resize", positionTopControls);
+window.addEventListener("orientationchange", positionTopControls);
 
 /* =========================================================
    BOOT SPLASH
@@ -1234,6 +1255,7 @@ begin.addEventListener("click", async function(e){
     topControls.style.display = "flex";
     saveBtn.style.display = multiplayer ? "none" : "inline-block";
     updateAmmoDisplay();
+    positionTopControls();
 
     if(multiplayer) roomInfo.textContent = "Share this PIN with other players: " + roomCode;
   }catch(err){
