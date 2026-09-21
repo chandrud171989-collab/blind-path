@@ -4,8 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Gold Hunt 3D</title>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#87b98a">
 
 <style>
 *{box-sizing:border-box}
@@ -23,6 +21,61 @@ html,body{
 
 #game{position:fixed;inset:0}
 canvas{display:block;width:100%;height:100%}
+
+/* ---------- Boot splash ---------- */
+
+#boot{
+  position:fixed;
+  inset:0;
+  z-index:100;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#050907;
+  cursor:pointer;
+  animation:bootFade .5s ease;
+}
+#boot.out{animation:bootOut .5s ease forwards}
+@keyframes bootFade{from{opacity:0}to{opacity:1}}
+@keyframes bootOut{to{opacity:0;visibility:hidden}}
+
+.boot-mark{text-align:center}
+.boot-logo{
+  font-size:48px;
+  font-weight:900;
+  letter-spacing:3px;
+  color:#eaf6ee;
+  text-shadow:0 0 22px #61e6a488,0 0 4px #fff6;
+}
+.boot-logo span{color:#61e6a4}
+.boot-tag{
+  margin-top:6px;
+  font-size:12px;
+  letter-spacing:5px;
+  color:#7fa389;
+  text-transform:uppercase;
+}
+.boot-bar{
+  width:170px;
+  height:3px;
+  margin:22px auto 0;
+  border-radius:3px;
+  background:#1c2921;
+  overflow:hidden;
+}
+.boot-bar::after{
+  content:"";
+  display:block;
+  height:100%;
+  width:40%;
+  background:#61e6a4;
+  border-radius:3px;
+  animation:bootLoad 1.4s ease-in-out infinite;
+}
+@keyframes bootLoad{
+  0%{transform:translateX(-100%)}
+  100%{transform:translateX(350%)}
+}
 
 /* ---------- Start ---------- */
 
@@ -49,6 +102,19 @@ canvas{display:block;width:100%;height:100%}
 
 .card h1{margin:0 0 8px;font-size:34px}
 .card p{color:#b9c8bc;line-height:1.5;margin:8px 0}
+
+#continueRow{display:none;margin-bottom:10px}
+#continueBtn{
+  width:100%;
+  padding:12px;
+  border:1px solid #2dd4bf;
+  border-radius:12px;
+  background:#123a34;
+  color:#bdf5ea;
+  font-size:14px;
+  font-weight:800;
+  cursor:pointer;
+}
 
 #playerName{
   width:100%;
@@ -107,6 +173,72 @@ canvas{display:block;width:100%;height:100%}
 .title{font-weight:900;letter-spacing:.5px}
 #levelLabel{margin-top:2px;font-size:12px;color:#ffe58a;font-weight:700}
 #status{margin-top:2px;font-size:12px;color:#d9e6db}
+
+/* ---------- Top controls (save / exit) ---------- */
+
+#topControls{
+  position:fixed;
+  top:12px;
+  right:12px;
+  z-index:30;
+  display:none;
+  gap:8px;
+}
+
+.topBtn{
+  pointer-events:auto;
+  border:1px solid #48604c;
+  border-radius:11px;
+  background:#071009dc;
+  color:#eaf3eb;
+  font-size:12px;
+  font-weight:800;
+  padding:9px 12px;
+  cursor:pointer;
+  box-shadow:0 6px 18px #0007;
+  backdrop-filter:blur(7px);
+}
+#saveBtn{border-color:#4b73b5;color:#cfe0ff}
+#exitBtn{border-color:#b5574b;color:#ffd6d0}
+.topBtn:active{transform:scale(.95)}
+
+/* ---------- Confirm modal ---------- */
+
+#confirmOverlay{
+  position:fixed;
+  inset:0;
+  z-index:60;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  background:#03050488;
+  backdrop-filter:blur(4px);
+}
+#confirmOverlay.show{display:flex}
+
+#confirmCard{
+  width:min(320px,90vw);
+  padding:22px;
+  border-radius:18px;
+  border:1px solid #56745b;
+  background:#0d160fee;
+  text-align:center;
+  box-shadow:0 20px 60px #000c;
+}
+#confirmCard p{color:#e6efe8;font-size:15px;margin-bottom:16px;line-height:1.4}
+
+.confirmRow{display:flex;gap:10px}
+.confirmRow button{
+  flex:1;
+  padding:12px;
+  border:0;
+  border-radius:12px;
+  font-size:14px;
+  font-weight:800;
+  cursor:pointer;
+}
+#confirmYes{background:#e05a4f;color:#fff}
+#confirmNo{background:#2a3830;color:#dff0e4}
 #distance{font-weight:900}
 
 #goldClue{
@@ -258,6 +390,14 @@ canvas{display:block;width:100%;height:100%}
 
 <body>
 
+<div id="boot">
+  <div class="boot-mark">
+    <div class="boot-logo">CIDS<span>TECH</span></div>
+    <div class="boot-tag">Games</div>
+    <div class="boot-bar"></div>
+  </div>
+</div>
+
 <div id="game"></div>
 
 <div id="start">
@@ -266,6 +406,10 @@ canvas{display:block;width:100%;height:100%}
     <p>Endless forest mazes. Find the gold, clear the level, keep going.</p>
 
     <input id="playerName" maxlength="14" placeholder="Your name" autocomplete="off">
+
+    <div id="continueRow">
+      <button id="continueBtn" type="button">▶ Continue — Level 1</button>
+    </div>
 
     <div id="modeRow" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:12px 0">
       <button id="computerMode" type="button" class="modeBtn active">🤖 Computer</button>
@@ -305,6 +449,21 @@ canvas{display:block;width:100%;height:100%}
     <div class="hudbox">
       <div id="ammo">🔫 Bullets: 5</div>
       <div id="playerCount" style="font-size:11px;color:#b9c8bc;margin-top:2px">Players: 1</div>
+    </div>
+  </div>
+</div>
+
+<div id="topControls">
+  <button id="saveBtn" class="topBtn" type="button">💾 Save</button>
+  <button id="exitBtn" class="topBtn" type="button">✕ Exit</button>
+</div>
+
+<div id="confirmOverlay">
+  <div id="confirmCard">
+    <p>Exit the game? Progress since your last save will be lost.</p>
+    <div class="confirmRow">
+      <button id="confirmNo" type="button">Stay</button>
+      <button id="confirmYes" type="button">Exit</button>
     </div>
   </div>
 </div>
@@ -370,6 +529,71 @@ const joinPinBox = $("joinPinBox");
 const roomPinDisplay = $("roomPinDisplay");
 const roomCodeInput = $("roomCode");
 const roomInfo = $("roomInfo");
+const boot = $("boot");
+const continueRow = $("continueRow");
+const continueBtn = $("continueBtn");
+const topControls = $("topControls");
+const saveBtn = $("saveBtn");
+const exitBtn = $("exitBtn");
+const confirmOverlay = $("confirmOverlay");
+const confirmYes = $("confirmYes");
+const confirmNo = $("confirmNo");
+
+/* =========================================================
+   BOOT SPLASH
+========================================================= */
+
+const SAVE_KEY = "goldHuntSave";
+let pendingResume = null;
+let paused = false;
+
+function dismissBoot(){
+  if(boot.classList.contains("out")) return;
+  boot.classList.add("out");
+  setTimeout(() => boot.remove(), 550);
+}
+
+boot.addEventListener("click", dismissBoot);
+setTimeout(dismissBoot, 1800);
+
+function loadSave(){
+  try{
+    const raw = localStorage.getItem(SAVE_KEY);
+    if(!raw) return null;
+    const data = JSON.parse(raw);
+    if(!data || !Number.isFinite(data.level)) return null;
+    return data;
+  }catch(_){ return null; }
+}
+
+function saveProgress(silent){
+  if(multiplayer) return false;
+  try{
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      level, score: myScore, name: playerName, savedAt: Date.now()
+    }));
+  }catch(_){ return false; }
+  if(!silent) statusEl.textContent = "💾 Progress saved — Level " + level;
+  return true;
+}
+
+function refreshContinueButton(){
+  const save = loadSave();
+  if(save && selectedMode === "computer"){
+    continueRow.style.display = "block";
+    continueBtn.textContent = "▶ Continue — Level " + save.level + " (Gold: " + (save.score||0) + ")";
+  }else{
+    continueRow.style.display = "none";
+  }
+}
+
+continueBtn.addEventListener("click", function(){
+  const save = loadSave();
+  if(!save) return;
+  pendingResume = save;
+  if(save.name) nameInput.value = save.name;
+  begin.click();
+});
 
 /* =========================================================
    NETWORK CONFIG
@@ -470,6 +694,7 @@ const THEMES = [
 ========================================================= */
 
 let scene, camera, renderer, clock, player;
+let rafId = null;
 let worldGroup = null;
 let hemiLight = null, sunLight = null;
 let flashLight = null;
@@ -746,6 +971,8 @@ function setMode(mode){
   }else{
     begin.textContent = "Enter the forest";
   }
+
+  refreshContinueButton();
 }
 
 computerModeBtn.addEventListener("click", () => setMode("computer"));
@@ -764,6 +991,8 @@ try{
   const savedName = localStorage.getItem("goldHuntName");
   if(savedName) nameInput.value = savedName;
 }catch(_){}
+
+refreshContinueButton();
 
 /* =========================================================
    MULTIPLAYER
@@ -1002,6 +1231,8 @@ begin.addEventListener("click", async function(e){
     window.__goldHuntStarted = true;
     start.classList.add("hidden");
     hud.style.display = "block";
+    topControls.style.display = "flex";
+    saveBtn.style.display = multiplayer ? "none" : "inline-block";
     updateAmmoDisplay();
 
     if(multiplayer) roomInfo.textContent = "Share this PIN with other players: " + roomCode;
@@ -1068,9 +1299,16 @@ function init(){
   setNameTag(player, playerName);
   scene.add(player);
 
-  startLevel(1);
+  let startAt = 1;
+  if(pendingResume && !multiplayer){
+    startAt = Math.max(1, pendingResume.level | 0);
+    myScore = Math.max(0, pendingResume.score | 0);
+  }
+  pendingResume = null;
 
-  requestAnimationFrame(loop);
+  startLevel(startAt);
+
+  rafId = requestAnimationFrame(loop);
 }
 
 /* =========================================================
@@ -1096,6 +1334,82 @@ function clearWorld(){
   disposeObject(worldGroup);
   worldGroup = null;
 }
+
+/* =========================================================
+   EXIT / RETURN TO MENU
+========================================================= */
+
+async function exitToMenu(){
+
+  if(rafId !== null){ cancelAnimationFrame(rafId); rafId = null; }
+
+  if(networkChannel){
+    try{ await networkChannel.unsubscribe(); }catch(_){}
+    networkChannel = null;
+  }
+  networkReady = false;
+
+  for(const id of Array.from(remotePlayers.keys())) removeRemotePlayer(id);
+
+  if(scene){
+    clearWorld();
+    if(player){ scene.remove(player); disposeObject(player); }
+    if(hider){ scene.remove(hider); disposeObject(hider); }
+    if(flashLight) scene.remove(flashLight);
+  }
+
+  if(renderer){
+    renderer.dispose();
+    if(renderer.domElement && renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement);
+  }
+
+  scene = camera = renderer = clock = player = hider = null;
+  hemiLight = sunLight = flashLight = null;
+
+  started = false;
+  window.__goldHuntStarted = false;
+  paused = false;
+  gameOver = false;
+  transitioning = false;
+  hiderFound = false;
+  goldCollected = false;
+  goldWinBroadcast = false;
+  flashActive = false;
+  level = 1;
+  myScore = 0;
+  bullets = 0;
+
+  for(const key in keys) keys[key] = false;
+
+  hud.style.display = "none";
+  topControls.style.display = "none";
+  goldClue.style.display = "none";
+  levelBanner.classList.remove("show");
+  confirmOverlay.classList.remove("show");
+
+  start.classList.remove("hidden");
+  begin.disabled = false;
+  roomInfo.textContent = "";
+
+  refreshContinueButton();
+}
+
+exitBtn.addEventListener("click", function(){
+  paused = true;
+  confirmOverlay.classList.add("show");
+});
+
+confirmNo.addEventListener("click", function(){
+  confirmOverlay.classList.remove("show");
+  paused = false;
+});
+
+confirmYes.addEventListener("click", function(){
+  confirmOverlay.classList.remove("show");
+  exitToMenu();
+});
+
+saveBtn.addEventListener("click", () => saveProgress(false));
 
 function startLevel(n){
 
@@ -1186,6 +1500,8 @@ function completeLevel(byMe, finderName){
   visibility.textContent = byMe ? "WINNER" : "GOLD FOUND";
   visibility.style.color = "#ffd75e";
   updateAmmoDisplay();
+
+  if(!multiplayer) saveProgress(true);
 
   /* Every client counts down locally; the maze for the next level is
      seeded from the PIN, so they all rebuild the identical world. */
@@ -1974,6 +2290,7 @@ function updateFlash(){
 function canShoot(){
 
   if(!player || !hider || hiderFound || gameOver) return false;
+  if(hider.visible === false) return false;
 
   const dx = hider.position.x - player.position.x;
   const dz = hider.position.z - player.position.z;
@@ -1981,16 +2298,15 @@ function canShoot(){
 
   if(distance > 16) return false;
 
-  if(!clearLineOfSight(
+  /* Lock-on: anyone you can actually see, within range, is a valid
+     shot. (Aiming used to require facing the target using the last
+     movement-key direction, which froze the moment you let go of
+     the keys to click shoot — so the aim was almost always stale
+     and every shot reported "missed".) */
+  return clearLineOfSight(
     player.position.x, player.position.z,
     hider.position.x, hider.position.z, 16
-  )) return false;
-
-  let diff = Math.atan2(dx, dz) - player.rotation.y;
-  while(diff >  Math.PI) diff -= Math.PI*2;
-  while(diff < -Math.PI) diff += Math.PI*2;
-
-  return Math.abs(diff) < 0.42;
+  );
 }
 
 function shoot(){
@@ -2107,9 +2423,11 @@ window.addEventListener("resize", function(){
 
 function loop(){
 
-  requestAnimationFrame(loop);
+  rafId = requestAnimationFrame(loop);
 
   const dt = Math.min(clock.getDelta(), .05);
+  if(paused) return;
+
   const now = performance.now();
 
   updatePlayer(dt);
